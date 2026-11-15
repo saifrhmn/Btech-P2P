@@ -369,7 +369,11 @@ export class P2pStore {
         r.poIds.push(id);
       }
       const unawarded = r.items.length - awards.length;
+      const winners = [...new Set(awards.map((a) => a.vendorId))]
+        .map((v) => `${this.vendorName(v)} (line ${awards.filter((a) => a.vendorId === v).map((a) => a.lineNo).join(', ')})`)
+        .join('; ');
       r.history.push({ at: now, by, action: `RFQ processed — lowest accepted price selected for ${awards.length} item(s)${unawarded ? `, ${unawarded} without an accepted offer` : ''}` });
+      r.history.push({ at: now, by: 'P2P', action: `Bid winner(s) — lowest technically accepted price: ${winners}` });
       r.history.push({ at: now, by: 'SAP interface', action: `ERP RFQ ${erp} created; order(s) ${r.poIds.join(', ')}` });
     });
     this.flash(`${rfqId} processed — ERP RFQ ${erp} created.`);

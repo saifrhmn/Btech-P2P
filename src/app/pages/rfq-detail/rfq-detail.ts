@@ -7,7 +7,7 @@ import { AuthService } from '../../core/auth.service';
 import { Quotation, Rfq, RfqItem } from '../../core/models';
 import { P2pStore, TECH_EVALUATORS, historyOf, tone } from '../../core/p2p.store';
 
-const STAGES = ['Saved & emailed', 'Vendor quotations', 'RFQ end date', 'Technical evaluation', 'Processing', 'ERP RFQ & orders'];
+const STAGES = ['Saved & emailed', 'Vendor quotations', 'RFQ end date', 'Technical evaluation', 'Winner selection', 'Processing', 'ERP RFQ & orders'];
 
 @Component({
   selector: 'app-rfq-detail',
@@ -39,7 +39,8 @@ export class RfqDetailPage {
 
   stageIndex(r: Rfq): number {
     if (r.status === 'Processed') return STAGES.length;
-    if (r.status === 'Technical evaluation') return this.store.evaluationComplete(r) ? 4 : 3;
+    // Once every offer has a Yes / No, the winner (lowest accepted price) is known → next is processing.
+    if (r.status === 'Technical evaluation') return this.store.evaluationComplete(r) ? 5 : 3;
     return this.store.validityPassed(r) ? 2 : 1;
   }
 
@@ -69,6 +70,20 @@ export class RfqDetailPage {
 
   isBest(vendorId: string, lineNo: number): boolean {
     return this.award(lineNo)?.vendorId === vendorId;
+  }
+
+  /** Winning vendors with the items they won and their awarded value. */
+  winners(): { vendorId: string; lines: number[]; total: number }[] {
+    const r = this.rfq();
+    if (!r) return [];
+    const byVendor = new Map<string, { vendorId: string; lines: number[]; total: number }>();
+    for (const a of this.awards()) {
+      const w = byVendor.get(a.vendorId) ?? { vendorId: a.vendorId, lines: [], total: 0 };
+      w.lines.push(a.lineNo);
+      w.total += a.unitPrice * (this.item(r, a.lineNo)?.quantity ?? 0);
+      byVendor.set(a.vendorId, w);
+    }
+    return [...byVendor.values()];
   }
 
   pendingCount(r: Rfq): number {

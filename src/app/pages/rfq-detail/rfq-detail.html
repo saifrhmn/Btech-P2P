@@ -9,7 +9,7 @@
   </section>
 
   <section class="panel panel-body">
-    <div class="workflow-track" style="grid-template-columns: repeat(6, 1fr); margin-top: 0">
+    <div class="workflow-track" style="grid-template-columns: repeat(7, 1fr); margin-top: 0">
       @for (s of stages; track s; let i = $index) {
         <div class="workflow-step" [class.done]="i < stageIndex(r)" [class.active-step]="i === stageIndex(r)">
           <span class="step-marker">{{ i < stageIndex(r) ? '✓' : i + 1 }}</span>
@@ -64,7 +64,7 @@
                         @let ev = evalOf(r, q.vendorId, it.lineNo);
                         <td [class.cell-best]="isBest(q.vendorId, it.lineNo)">
                           @if (p) {
-                            <div class="eval-price">{{ p | currency: 'BDT' : 'BDT ' }}@if (isBest(q.vendorId, it.lineNo)) { <span class="tag">Lowest</span> }</div>
+                            <div class="eval-price">{{ p | currency: 'BDT' : 'BDT ' }}@if (isBest(q.vendorId, it.lineNo)) { <span class="tag">{{ pendingCount(r) ? 'Lowest so far' : 'Winner' }}</span> }</div>
                             <div class="yn" role="group" [attr.aria-label]="'Technical evaluation for ' + vendor(q.vendorId) + ', line ' + it.lineNo">
                               <button type="button" class="yes" [class.on]="ev === true" [attr.aria-pressed]="ev === true" [disabled]="!canEvaluate()" (click)="store.setTechEval(r.id, q.vendorId, it.lineNo, true)">Yes</button>
                               <button type="button" class="no" [class.on]="ev === false" [attr.aria-pressed]="ev === false" [disabled]="!canEvaluate()" (click)="store.setTechEval(r.id, q.vendorId, it.lineNo, false)">No</button>
@@ -83,7 +83,17 @@
             @if (pendingCount(r)) {
               <div class="callout warn section-gap">{{ pendingCount(r) }} offer(s) still need a Yes / No decision.</div>
             } @else {
-              <div class="callout ok section-gap"><strong>Technical evaluation complete.</strong> Processing will award {{ awards().length }} of {{ r.items.length }} item(s) — total {{ awardTotal() | currency: 'BDT' : 'BDT ' : '1.0-0' }}.</div>
+              <div class="callout ok section-gap">
+                <strong>Technical evaluation complete — winner selected.</strong> For each item, the vendor with the lowest price among technically accepted (Yes) offers wins the bid.
+                @if (winners().length) {
+                  <ul class="clause-list">
+                    @for (w of winners(); track w.vendorId) {
+                      <li><strong>{{ vendor(w.vendorId) }}</strong> wins line(s) {{ w.lines.join(', ') }} — {{ w.total | currency: 'BDT' : 'BDT ' : '1.0-0' }}</li>
+                    }
+                  </ul>
+                }
+                Processing will award {{ awards().length }} of {{ r.items.length }} item(s) — total {{ awardTotal() | currency: 'BDT' : 'BDT ' : '1.0-0' }}.
+              </div>
               @if (auth.can('rfq-creator')) {
                 <div class="drawer-actions"><button class="button button-primary" type="button" [disabled]="!awards().length" (click)="store.processRfq(r.id)">Process RFQ — select lowest price &amp; create ERP RFQ No.</button></div>
               } @else {
@@ -93,7 +103,14 @@
           }
 
           @case ('Processed') {
-            <div class="panel-heading"><div><h2>RFQ processed</h2><p>The lowest technically accepted price was selected for each material.</p></div></div>
+            <div class="panel-heading"><div><h2>RFQ processed</h2><p>Bid winner: the lowest technically accepted price was selected for each material.</p></div></div>
+            @if (winners().length) {
+              <ul class="clause-list">
+                @for (w of winners(); track w.vendorId) {
+                  <li><strong>{{ vendor(w.vendorId) }}</strong> won line(s) {{ w.lines.join(', ') }} — {{ w.total | currency: 'BDT' : 'BDT ' : '1.0-0' }}</li>
+                }
+              </ul>
+            }
             <div class="callout ok section-gap">SAP / ERP RFQ No. <strong class="mono">{{ r.erpRfqNo }}</strong> · {{ r.poIds.length }} order(s) created. Next: goods receipt (GRN).</div>
             <div class="drawer-actions"><a class="button button-outline" routerLink="/purchase-orders">Go to orders &amp; GRN →</a></div>
           }
@@ -103,7 +120,7 @@
       @if (r.status !== 'Open' || awards().length) {
         <!-- ============ Award (lowest price per material) ============ -->
         <section class="panel">
-          <div class="table-heading"><div><div class="section-title-row"><h2>{{ r.status === 'Processed' ? 'Awarded items' : 'Lowest accepted price per item' }}</h2></div><p>{{ r.status === 'Processed' ? 'Final award per material' : 'Updates as technical decisions are recorded' }}</p></div></div>
+          <div class="table-heading"><div><div class="section-title-row"><h2>{{ r.status === 'Processed' ? 'Bid winners — awarded items' : 'Bid winner per item (lowest accepted price)' }}</h2></div><p>{{ r.status === 'Processed' ? 'Final award per material' : 'Updates as technical decisions are recorded — offers marked No are excluded' }}</p></div></div>
           <div class="table-scroll">
             <table class="compare">
               <thead><tr><th>LINE</th><th>ITEM</th><th>VENDOR</th><th class="amount-cell">UNIT PRICE</th><th class="amount-cell">LINE TOTAL</th></tr></thead>
