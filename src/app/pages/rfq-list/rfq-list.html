@@ -1,0 +1,68 @@
+<section class="page-heading">
+  <div>
+    <div class="eyebrow"><span class="eyebrow-line"></span> STEPS 2–4 · SOURCING</div>
+    <h1>Sourcing &amp; RFQs</h1>
+    <p>Create RFQs from PRs, email vendors, collect prices until the RFQ end date, evaluate technically and process into ERP RFQs.</p>
+  </div>
+  <div class="heading-actions">
+    @if (auth.can('rfq-creator')) {
+      <a class="button button-primary" routerLink="/rfqs/new">+ Create RFQ</a>
+    }
+  </div>
+</section>
+
+<section class="panel">
+  <div class="tabs" role="tablist">
+    @for (t of tabs; track t) {
+      <button type="button" role="tab" [class.active]="tab() === t" [attr.aria-selected]="tab() === t" (click)="tab.set(t)">
+        {{ t }}<span class="results-count">{{ count(t) }}</span>
+      </button>
+    }
+  </div>
+
+  @if (tab() === 'Awaiting RFQ') {
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>PR</th><th>ITEMS</th><th>REQUESTER</th><th>CREATED</th><th></th></tr></thead>
+        <tbody>
+          @for (pr of awaiting(); track pr.id) {
+            <tr>
+              <td><div class="primary-cell"><span><strong>{{ pr.id }}</strong><small>{{ pr.title }}</small></span></div></td>
+              <td><div class="supplier-cell"><strong>{{ pr.items.length }} item{{ pr.items.length === 1 ? '' : 's' }}</strong><small>{{ allRecognized(pr) ? 'All recognized' : 'Manual material selection needed' }}</small></div></td>
+              <td><div class="supplier-cell"><strong>{{ pr.requester }}</strong><small>{{ pr.department }}</small></div></td>
+              <td class="date-cell">{{ pr.createdAt | date: 'MMM d, h:mm a' }}</td>
+              <td>
+                @if (auth.can('rfq-creator')) {
+                  <a class="button button-outline button-sm" routerLink="/rfqs/new" [queryParams]="{ pr: pr.id }">Create RFQ →</a>
+                }
+              </td>
+            </tr>
+          } @empty {
+            <tr><td class="empty-state" colspan="5"><span>✓</span><strong>All PRs have RFQs</strong></td></tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  } @else {
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>RFQ</th><th>SOURCE PR</th><th>ITEMS</th><th>QUOTES</th><th>VALID UNTIL</th><th>STATUS</th><th></th></tr></thead>
+        <tbody>
+          @for (r of rows(); track r.id) {
+            <tr (click)="open(r)" (keydown.enter)="open(r)" tabindex="0">
+              <td><div class="primary-cell"><span><strong>{{ r.name }}</strong><small>{{ r.id }}</small></span></div></td>
+              <td class="date-cell">{{ r.prId }}</td>
+              <td class="date-cell">{{ r.items.length }}</td>
+              <td class="date-cell">{{ r.quotations.length }} / {{ r.vendorIds.length }}</td>
+              <td class="date-cell">{{ r.validUntil | date: 'MMM d, h:mm a' }}</td>
+              <td><span [class]="stageTone(r)"><i></i>{{ stageLabel(r) }}</span></td>
+              <td><span class="row-arrow" aria-hidden="true">›</span></td>
+            </tr>
+          } @empty {
+            <tr><td class="empty-state" colspan="7"><span>⌕</span><strong>No RFQs</strong></td></tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</section>

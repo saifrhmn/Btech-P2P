@@ -1,0 +1,220 @@
+@if (rfq(); as r) {
+  <section class="page-heading">
+    <div>
+      <div class="eyebrow"><span class="eyebrow-line"></span> <a routerLink="/rfqs" style="color: inherit">SOURCING &amp; RFQS</a> / {{ r.id }}</div>
+      <h1>{{ r.name }}</h1>
+      <p>{{ r.id }} · from <a routerLink="/requisitions">{{ r.prId }}</a> · created by {{ r.createdBy }} on {{ r.createdAt | date: 'MMM d, y' }}</p>
+    </div>
+    <div class="heading-actions"><span [class]="tone(statusLabel(r))"><i></i>{{ statusLabel(r) }}</span></div>
+  </section>
+
+  <section class="panel panel-body">
+    <div class="workflow-track" style="grid-template-columns: repeat(6, 1fr); margin-top: 0">
+      @for (s of stages; track s; let i = $index) {
+        <div class="workflow-step" [class.done]="i < stageIndex(r)" [class.active-step]="i === stageIndex(r)">
+          <span class="step-marker">{{ i < stageIndex(r) ? '✓' : i + 1 }}</span>
+          <span class="step-copy"><strong>{{ s }}</strong></span>
+        </div>
+      }
+    </div>
+  </section>
+
+  <div class="split section-gap">
+    <div class="stack">
+      <!-- ============ Current-stage action panel ============ -->
+      <section class="panel panel-body">
+        @switch (r.status) {
+          @case ('Open') {
+            @if (!store.validityPassed(r)) {
+              <div class="panel-heading"><div><h2>Collecting quotations</h2><p>{{ r.quotations.length }} of {{ r.vendorIds.length }} invited vendors have quoted through the Vendor Portal.</p></div></div>
+              <div class="callout section-gap">RFQ valid until <strong>{{ r.validUntil | date: 'MMM d, y, h:mm a' }}</strong>. Prices stay sealed until then; after this date the RFQ is no longer valid for quoting.</div>
+              @if (auth.can('rfq-creator')) {
+                <div class="drawer-actions"><button class="button button-outline" type="button" (click)="store.endValidityNow(r.id)">End RFQ validity now (demo shortcut)</button></div>
+              }
+            } @else {
+              <div class="panel-heading"><div><h2>RFQ no longer valid</h2><p>End date passed on {{ r.validUntil | date: 'MMM d, h:mm a' }}. {{ r.quotations.length }} quotation(s) received.</p></div></div>
+              @if (!r.quotations.length) {
+                <div class="callout warn section-gap">No vendor quoted before the end date.</div>
+              } @else if (canEvaluate()) {
+                <div class="drawer-actions"><button class="button button-primary" type="button" (click)="store.startTechEvaluation(r.id)">Start technical evaluation</button></div>
+              } @else {
+                <p class="muted section-gap">Waiting for company technical staff to evaluate the quotations.</p>
+              }
+            }
+          }
+
+          @case ('Technical evaluation') {
+            <div class="panel-heading"><div><h2>Technical evaluation</h2><p>For each item, mark every vendor's offer as technically acceptable — <strong>Yes</strong> or <strong>No</strong>. The lowest accepted price per material is selected automatically.</p></div></div>
+            <div class="table-scroll section-gap">
+              <table class="compare eval-grid">
+                <thead>
+                  <tr><th>ITEM</th>@for (q of r.quotations; track q.vendorId) { <th>{{ vendor(q.vendorId) }}</th> }</tr>
+                </thead>
+                <tbody>
+                  @for (it of r.items; track it.lineNo) {
+                    <tr>
+                      <td>
+                        <strong>{{ it.lineNo }} · {{ it.description }}</strong><br /><small class="muted">{{ it.quantity }} {{ it.uom }}</small>
+                        @if (it.techSpecs.length) {
+                          <details class="spec-details"><summary>{{ it.techSpecs.length }} spec(s)</summary><ul>@for (s of it.techSpecs; track $index) { <li>{{ s }}</li> }</ul></details>
+                        }
+                      </td>
+                      @for (q of r.quotations; track q.vendorId) {
+                        @let p = price(q, it);
+                        @let ev = evalOf(r, q.vendorId, it.lineNo);
+                        <td [class.cell-best]="isBest(q.vendorId, it.lineNo)">
+                          @if (p) {
+                            <div class="eval-price">{{ p | currency: 'USD' }}@if (isBest(q.vendorId, it.lineNo)) { <span class="tag">Lowest</span> }</div>
+                            <div class="yn" role="group" [attr.aria-label]="'Technical evaluation for ' + vendor(q.vendorId) + ', line ' + it.lineNo">
+                              <button type="button" class="yes" [class.on]="ev === true" [attr.aria-pressed]="ev === true" [disabled]="!canEvaluate()" (click)="store.setTechEval(r.id, q.vendorId, it.lineNo, true)">Yes</button>
+                              <button type="button" class="no" [class.on]="ev === false" [attr.aria-pressed]="ev === false" [disabled]="!canEvaluate()" (click)="store.setTechEval(r.id, q.vendorId, it.lineNo, false)">No</button>
+                            </div>
+                          } @else {
+                            <span class="muted">Not quoted</span>
+                          }
+                        </td>
+                      }
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+
+            @if (pendingCount(r)) {
+              <div class="callout warn section-gap">{{ pendingCount(r) }} offer(s) still need a Yes / No decision.</div>
+            } @else {
+              <div class="callout ok section-gap"><strong>Technical evaluation complete.</strong> Processing will award {{ awards().length }} of {{ r.items.length }} item(s) — total {{ awardTotal() | currency: 'USD' : 'symbol' : '1.0-0' }}.</div>
+              @if (auth.can('rfq-creator')) {
+                <div class="drawer-actions"><button class="button button-primary" type="button" [disabled]="!awards().length" (click)="store.processRfq(r.id)">Process RFQ — select lowest price &amp; create ERP RFQ No.</button></div>
+              } @else {
+                <p class="muted section-gap">Waiting for the RFQ creator to process the RFQ.</p>
+              }
+            }
+          }
+
+          @case ('Processed') {
+            <div class="panel-heading"><div><h2>RFQ processed</h2><p>The lowest technically accepted price was selected for each material.</p></div></div>
+            <div class="callout ok section-gap">SAP / ERP RFQ No. <strong class="mono">{{ r.erpRfqNo }}</strong> · {{ r.poIds.length }} order(s) created. Next: goods receipt (GRN).</div>
+            <div class="drawer-actions"><a class="button button-outline" routerLink="/purchase-orders">Go to orders &amp; GRN →</a></div>
+          }
+        }
+      </section>
+
+      @if (r.status !== 'Open' || awards().length) {
+        <!-- ============ Award (lowest price per material) ============ -->
+        <section class="panel">
+          <div class="table-heading"><div><div class="section-title-row"><h2>{{ r.status === 'Processed' ? 'Awarded items' : 'Lowest accepted price per item' }}</h2></div><p>{{ r.status === 'Processed' ? 'Final award per material' : 'Updates as technical decisions are recorded' }}</p></div></div>
+          <div class="table-scroll">
+            <table class="compare">
+              <thead><tr><th>LINE</th><th>ITEM</th><th>VENDOR</th><th class="amount-cell">UNIT PRICE</th><th class="amount-cell">LINE TOTAL</th></tr></thead>
+              <tbody>
+                @for (it of r.items; track it.lineNo) {
+                  @let a = award(it.lineNo);
+                  <tr [class.winner]="!!a">
+                    <td>{{ it.lineNo }}</td>
+                    <td>{{ it.description }} <small class="muted">· {{ it.quantity }} {{ it.uom }}</small></td>
+                    <td>{{ a ? vendor(a.vendorId) : 'No accepted offer' }}</td>
+                    <td class="amount-cell">{{ a ? (a.unitPrice | currency: 'USD') : '—' }}</td>
+                    <td class="amount-cell">{{ a ? (a.unitPrice * it.quantity | currency: 'USD' : 'symbol' : '1.0-0') : '—' }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+          @if (r.poIds.length) {
+            <div class="table-footer"><span>Orders: @for (id of r.poIds; track id; let last = $last) { <a routerLink="/purchase-orders">{{ id }}</a>{{ last ? '' : ', ' }} }</span></div>
+          }
+        </section>
+      }
+
+      <!-- ============ Quotations ============ -->
+      <section class="panel">
+        <div class="table-heading"><div><div class="section-title-row"><h2>Quotations</h2><span class="results-count">{{ r.quotations.length }} / {{ r.vendorIds.length }}</span></div><p>Price per item, submitted through the Vendor Portal</p></div></div>
+        <div class="table-scroll">
+          <table class="compare">
+            <thead>
+              <tr><th>VENDOR</th><th>SUBMITTED</th>@if (!sealed()) { @for (it of r.items; track it.lineNo) { <th class="amount-cell">LINE {{ it.lineNo }}</th> }<th class="amount-cell">TOTAL</th><th>DELIVERY</th> }</tr>
+            </thead>
+            <tbody>
+              @for (vid of r.vendorIds; track vid) {
+                @let q = quoteOf(vid);
+                <tr>
+                  <td><strong>{{ vendor(vid) }}</strong></td>
+                  <td class="date-cell">{{ q ? (q.submittedAt | date: 'MMM d, h:mm a') : 'Not submitted' }}</td>
+                  @if (!sealed()) {
+                    @if (q) {
+                      @for (it of r.items; track it.lineNo) { <td class="amount-cell">{{ price(q, it) ? (price(q, it)! | currency: 'USD') : '—' }}</td> }
+                      <td class="amount-cell">{{ store.quoteTotal(r, q) | currency: 'USD' : 'symbol' : '1.0-0' }}</td>
+                      <td>{{ q.deliveryDays }} days</td>
+                    } @else {
+                      <td [attr.colspan]="r.items.length + 2" class="date-cell">—</td>
+                    }
+                  }
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+        @if (sealed()) { <div class="table-footer"><span>🔒 Prices are sealed until the RFQ end date.</span></div> }
+      </section>
+    </div>
+
+    <!-- ============ Side column ============ -->
+    <aside class="stack">
+      <section class="panel panel-body">
+        <div class="drawer-section-label">RFQ</div>
+        <dl class="detail-grid">
+          <div><dt>Name</dt><dd>{{ r.name }}</dd></div>
+          <div><dt>Source PR</dt><dd>{{ r.prId }}</dd></div>
+          <div><dt>Valid until</dt><dd>{{ r.validUntil | date: 'MMM d, h:mm a' }}</dd></div>
+          <div><dt>Items</dt><dd>{{ r.items.length }}</dd></div>
+          <div><dt>Location</dt><dd>{{ pr()?.location }}</dd></div>
+          <div><dt>ERP RFQ No.</dt><dd class="mono">{{ r.erpRfqNo ?? '—' }}</dd></div>
+        </dl>
+      </section>
+
+      <section class="panel panel-body">
+        <div class="drawer-section-label">ITEMS &amp; TECHNICAL SPECS</div>
+        <ul class="timeline">
+          @for (it of r.items; track it.lineNo) {
+            <li><strong>{{ it.lineNo }} · {{ it.materialCode }} — {{ it.quantity }} {{ it.uom }}</strong><small>{{ it.techSpecs.length ? it.techSpecs.join(' · ') : 'No technical specification' }}</small></li>
+          }
+        </ul>
+      </section>
+
+      <section class="panel panel-body">
+        <div class="drawer-section-label">TERMS &amp; CONDITIONS · {{ store.termsTemplate(r.termsId)?.name ?? r.termsId }}</div>
+        <ul class="clause-list">@for (c of r.terms; track $index) { <li>{{ c }}</li> }</ul>
+      </section>
+
+      <section class="panel panel-body">
+        <div class="drawer-section-label">EMAILS SENT ({{ mails().length }})</div>
+        <div class="mail-list">
+          @for (m of mails(); track m.id) {
+            <details>
+              <summary><strong>{{ vendor(m.vendorId) }}</strong><small>{{ m.to }} · {{ m.sentAt | date: 'MMM d, h:mm a' }}</small></summary>
+              <div class="mail-body"><div class="mail-subject">{{ m.subject }}</div><pre>{{ m.body }}</pre></div>
+            </details>
+          } @empty {
+            <p class="muted">No emails recorded.</p>
+          }
+        </div>
+      </section>
+
+      <section class="panel panel-body">
+        <div class="drawer-section-label">AUDIT TRAIL</div>
+        <ul class="timeline">
+          @for (h of historyOf(r); track $index) {
+            <li><strong>{{ h.action }}</strong><small>{{ h.by }} · {{ h.at | date: 'MMM d, y, h:mm a' }}</small></li>
+          }
+        </ul>
+      </section>
+    </aside>
+  </div>
+} @else {
+  <section class="panel panel-body">
+    <h1>RFQ not found</h1>
+    <p class="muted section-gap">It may have been removed when demo data was reset.</p>
+    <div class="drawer-actions"><a class="button button-outline" routerLink="/rfqs">Back to RFQs</a></div>
+  </section>
+}

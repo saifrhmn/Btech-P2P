@@ -1,0 +1,115 @@
+<section class="page-heading">
+  <div>
+    <div class="eyebrow"><span class="eyebrow-line"></span> STEP 6 · INVOICE PARK, APPROVAL &amp; PAYMENT</div>
+    <h1>Invoice workflow</h1>
+    <p>Vendor invoices arrive from the Vendor Portal. The company parks each one (Invoice Park No.), then it routes by purchase group and location for approval, is posted, and paid.</p>
+  </div>
+</section>
+
+<section class="panel">
+  <div class="tabs" role="tablist">
+    @for (t of tabs; track t) {
+      <button type="button" role="tab" [class.active]="tab() === t" [attr.aria-selected]="tab() === t" (click)="tab.set(t)">{{ t }}<span class="results-count">{{ count(t) }}</span></button>
+    }
+  </div>
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>INVOICE</th><th>VENDOR</th><th>ORDER / PARK NO.</th><th>SUBMITTED</th><th class="amount-cell">GROSS</th><th>CURRENT STEP</th><th>STATUS</th></tr></thead>
+      <tbody>
+        @for (inv of rows(); track inv.id) {
+          <tr (click)="selectedId.set(inv.id)" (keydown.enter)="selectedId.set(inv.id)" tabindex="0">
+            <td><div class="primary-cell"><span><strong>{{ inv.id }}</strong><small>Vendor ref {{ inv.vendorInvoiceNo }}</small></span></div></td>
+            <td class="date-cell">{{ store.vendorName(inv.vendorId) }}</td>
+            <td><div class="supplier-cell"><strong>{{ inv.poId }}</strong><small class="mono">{{ inv.parkNo ?? "Not parked" }}</small></div></td>
+            <td class="date-cell">{{ inv.submittedAt | date: 'MMM d, y' }}</td>
+            <td class="amount-cell">{{ inv.netAmount + inv.vatAmount | currency: 'USD' : 'symbol' : '1.0-0' }}</td>
+            <td class="date-cell">{{ inv.status === 'Awaiting park' ? 'Accounts — park invoice' : pendingLabel(inv) || (inv.status === 'Posted' ? 'Accounts in Charge — payment' : '—') }}</td>
+            <td><span [class]="tone(inv.status)"><i></i>{{ inv.status }}</span></td>
+          </tr>
+        } @empty {
+          <tr><td class="empty-state" colspan="7"><span>✓</span><strong>No invoices here</strong></td></tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</section>
+
+@if (selected(); as inv) {
+  @let po = store.po(inv.poId);
+  <div class="drawer-backdrop" (click)="selectedId.set(null)">
+    <aside class="detail-drawer" role="dialog" aria-modal="true" [attr.aria-label]="inv.id" (click)="$event.stopPropagation()">
+      <div class="drawer-header">
+        <span class="drawer-kicker">INVOICE AUTOMATION</span>
+        <button class="icon-button" type="button" aria-label="Close" (click)="selectedId.set(null)">×</button>
+      </div>
+      <h2>{{ inv.id }}</h2>
+      <p class="drawer-description">{{ store.vendorName(inv.vendorId) }} · vendor ref {{ inv.vendorInvoiceNo }}</p>
+      <span [class]="tone(inv.status)"><i></i>{{ inv.status }}</span>
+
+      <dl class="detail-grid">
+        <div><dt>Net amount</dt><dd>{{ inv.netAmount | currency: 'USD' }}</dd></div>
+        <div><dt>VAT</dt><dd>{{ inv.vatAmount | currency: 'USD' }}</dd></div>
+        <div><dt>Gross</dt><dd>{{ inv.netAmount + inv.vatAmount | currency: 'USD' }}</dd></div>
+        <div><dt>Order value</dt><dd>{{ po?.amount | currency: 'USD' }}</dd></div>
+        <div><dt>Order / ERP RFQ</dt><dd>{{ inv.poId }} · <span class="mono">{{ po?.erpRfqNo }}</span></dd></div><div><dt>Invoice Park No.</dt><dd class="mono">{{ inv.parkNo ?? "Not parked yet" }}</dd></div>
+        <div><dt>GRN</dt><dd class="mono">{{ po?.grn?.number ?? '—' }}</dd></div>
+        <div><dt>Routing</dt><dd>{{ po?.purchaseGroup }} · {{ po?.location }}</dd></div>
+        <div><dt>SAP document</dt><dd class="mono">{{ inv.sapDocument ?? 'Not posted' }}</dd></div>
+      </dl>
+      @if (po && inv.netAmount !== po.amount) {
+        <div class="callout warn section-gap">Net amount differs from the order value by {{ inv.netAmount - po.amount | currency: 'USD' }}. Review before approving.</div>
+      }
+
+      <div class="drawer-divider"></div>
+      <div class="drawer-section-label">APPROVAL ROUTE</div>
+      <div class="approval-chain">
+        <div class="approval-step" [class.approved]="!!inv.parkNo" [class.pending]="inv.status === 'Awaiting park'">
+          <span class="drawer-step-marker">{{ inv.parkNo ? '✓' : 1 }}</span>
+          <span><strong>Accounts — park invoice</strong><small>{{ inv.parkNo ? 'Park No. ' + inv.parkNo + ' · ' + (inv.parkedAt | date: 'MMM d, h:mm a') : 'Creates the Invoice Park No.' }}</small></span>
+          <span [class]="tone(inv.parkNo ? 'Approved' : inv.status === 'Awaiting park' ? 'Pending' : 'Waiting')">{{ inv.parkNo ? 'Parked' : inv.status === 'Awaiting park' ? 'Pending' : 'Waiting' }}</span>
+        </div>
+        @for (s of inv.steps; track $index; let i = $index) {
+          <div class="approval-step" [class.approved]="s.status === 'Approved'" [class.pending]="s.status === 'Pending'" [class.rejected]="s.status === 'Rejected'">
+            <span class="drawer-step-marker">{{ s.status === 'Approved' ? '✓' : s.status === 'Rejected' ? '×' : i + 2 }}</span>
+            <span><strong>{{ s.label }}</strong><small>{{ s.by ? s.by + ' · ' + (s.at | date: 'MMM d, h:mm a') : (s.role === 'vat-approver' ? 'Posts the parked invoice on approval' : 'Awaiting') }}</small></span>
+            <span [class]="tone(s.status)">{{ s.status }}</span>
+          </div>
+        }
+        <div class="approval-step" [class.approved]="inv.status === 'Paid'" [class.pending]="inv.status === 'Posted'">
+          <span class="drawer-step-marker">{{ inv.status === 'Paid' ? '✓' : inv.steps.length + 2 }}</span>
+          <span><strong>Accounts in Charge — payment</strong><small>{{ inv.paymentRef ? inv.paymentRef + ' · ' + (inv.paidAt | date: 'MMM d, h:mm a') : 'After posting' }}</small></span>
+          <span [class]="tone(inv.status === 'Paid' ? 'Approved' : inv.status === 'Posted' ? 'Pending' : 'Waiting')">{{ inv.status === 'Paid' ? 'Paid' : inv.status === 'Posted' ? 'Pending' : 'Waiting' }}</span>
+        </div>
+      </div>
+
+      @if (inv.status === 'Awaiting park') {
+        @if (auth.can('accounts')) {
+          <div class="drawer-actions"><button class="button button-primary" type="button" (click)="store.parkInvoice(inv.id)">Park invoice — create Invoice Park No.</button></div>
+        } @else {
+          <p class="muted section-gap">Waiting for Accounts to park the invoice.</p>
+        }
+      }
+      @if (canDecide(inv)) {
+        <label class="field section-gap"><span>Comment</span><textarea [(ngModel)]="comment" placeholder="Required when rejecting"></textarea></label>
+        <div class="drawer-actions">
+          <button class="button button-success" type="button" (click)="decide(inv, true)">{{ inv.status === 'VAT approval' ? 'Approve VAT — post' : 'Approve' }}</button>
+          <button class="button button-danger" type="button" (click)="decide(inv, false)">Reject</button>
+        </div>
+      }
+      @if (inv.status === 'Posted' && auth.can('accounts')) {
+        <div class="drawer-actions"><button class="button button-primary" type="button" (click)="store.payInvoice(inv.id)">Pay bill &amp; complete</button></div>
+      }
+      @if (inv.status === 'Paid') {
+        <div class="callout ok section-gap"><strong>Process complete.</strong> Paid under {{ inv.paymentRef }}.</div>
+      }
+
+      <div class="drawer-divider"></div>
+      <div class="drawer-section-label">AUDIT TRAIL</div>
+      <ul class="timeline">
+        @for (h of historyOf(inv); track $index) {
+          <li><strong>{{ h.action }}</strong><small>{{ h.by }} · {{ h.at | date: 'MMM d, y, h:mm a' }}</small></li>
+        }
+      </ul>
+    </aside>
+  </div>
+}

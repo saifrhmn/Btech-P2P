@@ -1,0 +1,133 @@
+<section class="page-heading">
+  <div>
+    <div class="eyebrow"><span class="eyebrow-line"></span> MASTER DATA</div>
+    <h1>Setup</h1>
+    <p>Technical specification per material, terms &amp; conditions templates and vendors used when creating RFQs.</p>
+  </div>
+</section>
+
+<section class="panel">
+  <div class="tabs" role="tablist">
+    @for (t of tabs; track t.id) {
+      <button type="button" role="tab" [class.active]="tab() === t.id" [attr.aria-selected]="tab() === t.id" (click)="tab.set(t.id)">
+        {{ t.label }}<span class="results-count">{{ t.id === 'specs' ? materials.length : t.id === 'terms' ? store.terms().length : store.vendors().length }}</span>
+      </button>
+    }
+  </div>
+
+  @switch (tab()) {
+    @case ('specs') {
+      <div class="setup-split">
+        <nav class="setup-list" aria-label="Materials">
+          @for (m of materials; track m.code) {
+            <button type="button" [class.active]="materialCode() === m.code" (click)="selectMaterial(m.code)">
+              <span><strong>{{ m.code }}</strong><small>{{ m.description }}</small></span>
+              <span class="results-count">{{ specCount(m.code) }}</span>
+            </button>
+          }
+        </nav>
+        <div class="panel-body setup-editor">
+          <h2>{{ material()?.code }} — {{ material()?.description }}</h2>
+          <p class="muted">Each line is one technical requirement. Vendors see these with the item on every new RFQ.</p>
+          <div class="section-gap">
+            @for (s of specs; track $index; let n = $index) {
+              <div class="spec-row">
+                <span class="spec-no">{{ n + 1 }}</span>
+                <input [attr.aria-label]="'Specification ' + (n + 1)" [(ngModel)]="specs[n]" placeholder="e.g. Manufacturer warranty ≥ 3 years" />
+                <button class="icon-button" type="button" [attr.aria-label]="'Remove specification ' + (n + 1)" (click)="removeSpec(n)">×</button>
+              </div>
+            }
+          </div>
+          <div class="form-actions">
+            <button class="button button-outline" type="button" (click)="addSpec()">+ Add specification</button>
+            <button class="button button-primary" type="button" (click)="saveSpecs()">Save specification</button>
+          </div>
+        </div>
+      </div>
+    }
+
+    @case ('terms') {
+      <div class="panel-body">
+        <div class="row" style="justify-content: space-between">
+          <p class="muted">Selected in the RFQ wizard; the clauses are sent to vendors and must be accepted when quoting.</p>
+          <button class="button button-primary" type="button" (click)="editTerms(null)">+ New template</button>
+        </div>
+        <div class="option-grid section-gap">
+          @for (t of store.terms(); track t.id) {
+            <div class="option-card">
+              <strong>{{ t.name }}</strong>
+              <small class="mono">{{ t.id }}</small>
+              <ul>@for (c of t.clauses; track $index) { <li>{{ c }}</li> }</ul>
+              <div class="row section-gap">
+                <button class="button button-outline button-sm" type="button" (click)="editTerms(t)">Edit</button>
+                <button class="button button-danger button-sm" type="button" (click)="deleteTerms(t)">Delete</button>
+              </div>
+            </div>
+          }
+        </div>
+      </div>
+    }
+
+    @case ('vendors') {
+      <div class="panel-body">
+        <div class="row" style="justify-content: space-between">
+          <p class="muted">Vendors receive RFQ invitations by email. New vendors can also be added inside the RFQ wizard.</p>
+          <button class="button button-primary" type="button" (click)="addingVendor.set(true)">+ Add vendor</button>
+        </div>
+        @if (addingVendor()) {
+          <form class="form-grid line-card section-gap" (ngSubmit)="saveVendor()">
+            <label class="field"><span>Vendor name</span><input name="vName" [(ngModel)]="newVendor.name" /></label>
+            <label class="field"><span>Email</span><input type="email" name="vEmail" [(ngModel)]="newVendor.email" /></label>
+            <label class="field"><span>Contact person</span><input name="vContact" [(ngModel)]="newVendor.contactPerson" /></label>
+            <label class="field"><span>Phone</span><input name="vPhone" [(ngModel)]="newVendor.phone" /></label>
+            <label class="field">
+              <span>Category</span>
+              <select name="vCat" [(ngModel)]="newVendor.category">
+                @for (c of categories; track c) { <option [value]="c">{{ c }}</option> }
+              </select>
+            </label>
+            <div class="form-actions full">
+              <button class="button button-outline" type="button" (click)="addingVendor.set(false)">Cancel</button>
+              <button class="button button-primary" type="submit">Add vendor</button>
+            </div>
+          </form>
+        }
+      </div>
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th>VENDOR</th><th>CATEGORY</th><th>EMAIL</th><th>CONTACT</th></tr></thead>
+          <tbody>
+            @for (v of store.vendors(); track v.id) {
+              <tr>
+                <td><div class="primary-cell"><span><strong>{{ v.name }}</strong><small>{{ v.id }}</small></span></div></td>
+                <td class="date-cell">{{ v.category }}</td>
+                <td class="date-cell mono">{{ v.email }}</td>
+                <td class="date-cell">{{ v.contactPerson ?? '—' }}{{ v.phone ? ' · ' + v.phone : '' }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  }
+</section>
+
+@if (editingTerms(); as t) {
+  <div class="drawer-backdrop" (click)="editingTerms.set(null)">
+    <aside class="detail-drawer" role="dialog" aria-modal="true" aria-label="Terms and conditions template" (click)="$event.stopPropagation()">
+      <div class="drawer-header">
+        <span class="drawer-kicker">SETUP · TERMS &amp; CONDITIONS</span>
+        <button class="icon-button" type="button" aria-label="Close" (click)="editingTerms.set(null)">×</button>
+      </div>
+      <h2>{{ t.id ? 'Edit ' + t.name : 'New template' }}</h2>
+      <form class="form-grid" (ngSubmit)="saveTerms()">
+        <label class="field full"><span>Template name</span><input name="tName" [(ngModel)]="termsName" /></label>
+        <label class="field full"><span>Clauses (one per line)</span><textarea name="tClauses" rows="8" [(ngModel)]="termsClauses"></textarea></label>
+        <div class="form-actions full">
+          <button class="button button-outline" type="button" (click)="editingTerms.set(null)">Cancel</button>
+          <button class="button button-primary" type="submit">Save template</button>
+        </div>
+      </form>
+    </aside>
+  </div>
+}

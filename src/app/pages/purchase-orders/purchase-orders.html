@@ -1,0 +1,104 @@
+<section class="page-heading">
+  <div>
+    <div class="eyebrow"><span class="eyebrow-line"></span> STEP 5 · ERP RFQ ORDERS &amp; GOODS RECEIPT</div>
+    <h1>Orders &amp; GRN</h1>
+    <p>One order per awarded vendor is created with the SAP/ERP RFQ No. when an RFQ is processed. Goods receipts are recorded in SAP.</p>
+  </div>
+</section>
+
+<section class="panel">
+  <div class="tabs" role="tablist">
+    @for (t of tabs; track t) {
+      <button type="button" role="tab" [class.active]="tab() === t" [attr.aria-selected]="tab() === t" (click)="tab.set(t)">{{ t }}<span class="results-count">{{ count(t) }}</span></button>
+    }
+  </div>
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>ORDER</th><th>VENDOR</th><th>ERP RFQ NO. / RFQ</th><th>LOCATION</th><th class="amount-cell">AMOUNT</th><th>GRN</th><th>STATUS</th></tr></thead>
+      <tbody>
+        @for (po of rows(); track po.id) {
+          <tr (click)="open(po)" (keydown.enter)="open(po)" tabindex="0">
+            <td><div class="primary-cell"><span><strong>{{ po.id }}</strong><small>{{ po.description }} · {{ po.lines.length }} item(s)</small></span></div></td>
+            <td><div class="supplier-cell"><strong>{{ store.vendorName(po.vendorId) }}</strong><small>{{ po.vendorId }}</small></div></td>
+            <td><div class="supplier-cell"><strong class="mono">{{ po.erpRfqNo }}</strong><small>{{ po.rfqId }} · {{ po.prId }}</small></div></td>
+            <td><div class="supplier-cell"><strong>{{ po.location }}</strong><small>{{ po.purchaseGroup }}</small></div></td>
+            <td class="amount-cell">{{ po.amount | currency: 'USD' : 'symbol' : '1.0-0' }}</td>
+            <td class="date-cell">{{ po.grn?.number ?? 'Pending' }}</td>
+            <td><span [class]="tone(po.status)"><i></i>{{ po.status }}</span></td>
+          </tr>
+        } @empty {
+          <tr><td class="empty-state" colspan="7"><span>⌕</span><strong>No orders</strong></td></tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</section>
+
+@if (selected(); as po) {
+  <div class="drawer-backdrop" (click)="selectedId.set(null)">
+    <aside class="detail-drawer drawer-wide" role="dialog" aria-modal="true" [attr.aria-label]="po.id" (click)="$event.stopPropagation()">
+      <div class="drawer-header">
+        <span class="drawer-kicker">ORDER · ERP RFQ {{ po.erpRfqNo }}</span>
+        <button class="icon-button" type="button" aria-label="Close" (click)="selectedId.set(null)">×</button>
+      </div>
+      <h2>{{ po.id }}</h2>
+      <p class="drawer-description">{{ po.description }}</p>
+      <span [class]="tone(po.status)"><i></i>{{ po.status }}</span>
+
+      <dl class="detail-grid">
+        <div><dt>Vendor</dt><dd>{{ store.vendorName(po.vendorId) }}</dd></div>
+        <div><dt>ERP RFQ No.</dt><dd class="mono">{{ po.erpRfqNo }}</dd></div>
+        <div><dt>Source RFQ</dt><dd><a [routerLink]="['/rfqs', po.rfqId]">{{ po.rfqId }}</a></dd></div>
+        <div><dt>Order value</dt><dd>{{ po.amount | currency: 'USD' : 'symbol' : '1.0-0' }}</dd></div>
+        <div><dt>Created</dt><dd>{{ po.createdAt | date: 'MMM d, y' }}</dd></div>
+        <div><dt>Location</dt><dd>{{ po.location }} · {{ po.purchaseGroup }}</dd></div>
+      </dl>
+
+      <div class="drawer-divider"></div>
+      <div class="drawer-section-label">GOODS RECEIPT (SAP)</div>
+      @if (po.grn; as grn) {
+        <dl class="detail-grid">
+          <div><dt>GRN number</dt><dd class="mono">{{ grn.number }}</dd></div>
+          <div><dt>Posted</dt><dd>{{ grn.postedAt | date: 'MMM d, y, h:mm a' }}</dd></div>
+          <div><dt>Recorded by</dt><dd>{{ grn.recordedBy }}</dd></div>
+          <div><dt>Received value</dt><dd>{{ store.grnValue(po.id) | currency: 'USD' : 'symbol' : '1.0-0' }}</dd></div>
+        </dl>
+      }
+      <div class="table-scroll section-gap">
+        <table class="compare">
+          <thead><tr><th>ITEM</th><th>ORDERED</th><th class="amount-cell">UNIT PRICE</th><th>RECEIVED</th></tr></thead>
+          <tbody>
+            @for (l of po.lines; track l.lineNo) {
+              <tr>
+                <td>{{ l.lineNo }} · {{ l.description }}</td>
+                <td>{{ l.quantity }} {{ l.uom }}</td>
+                <td class="amount-cell">{{ l.unitPrice | currency: 'USD' }}</td>
+                <td>
+                  @if (po.grn) {
+                    {{ po.grn.received[l.lineNo] || 0 }} {{ l.uom }}
+                  } @else if (auth.can('requester')) {
+                    <input class="cell-input" type="number" min="0" [max]="l.quantity" [attr.aria-label]="'Received quantity for line ' + l.lineNo" [(ngModel)]="received[l.lineNo]" />
+                  } @else {
+                    —
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      @if (!po.grn) {
+        @if (auth.can('requester')) {
+          <div class="drawer-actions"><button class="button button-primary" type="button" (click)="recordGrn(po)">Create GRN in SAP</button></div>
+        } @else {
+          <p class="muted section-gap">Waiting for the SAP user to record the goods receipt.</p>
+        }
+      } @else if (po.status === 'Goods received') {
+        <div class="callout section-gap">The vendor can now create an invoice in the Vendor Portal.</div>
+      }
+      @if (po.invoiceId) {
+        <div class="drawer-actions"><a class="button button-outline" routerLink="/invoices">View invoice {{ po.invoiceId }} →</a></div>
+      }
+    </aside>
+  </div>
+}

@@ -1,0 +1,167 @@
+<section class="page-heading">
+  <div>
+    <div class="eyebrow"><span class="eyebrow-line"></span> STEP 1 · PURCHASE REQUISITION</div>
+    <h1>Purchase requisitions</h1>
+    <p>PRs are created in SAP and sent to P2P. No approval is needed — a saved PR goes straight to RFQ creation.</p>
+  </div>
+  <div class="heading-actions">
+    @if (canCreate()) {
+      <button class="button button-primary" type="button" (click)="startNew()">+ Create PR</button>
+    }
+  </div>
+</section>
+
+<section class="panel">
+  <div class="tabs" role="tablist">
+    @for (t of tabs; track t) {
+      <button type="button" role="tab" [class.active]="tab() === t" [attr.aria-selected]="tab() === t" (click)="tab.set(t)">
+        {{ t }}<span class="results-count">{{ count(t) }}</span>
+      </button>
+    }
+  </div>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr><th>REQUISITION</th><th>ITEMS</th><th>REQUESTER</th><th>CREATED</th><th class="amount-cell">EST. VALUE</th><th>STATUS</th><th>NEXT STEP</th></tr>
+      </thead>
+      <tbody>
+        @for (pr of rows(); track pr.id) {
+          <tr (click)="selected.set(pr)" (keydown.enter)="selected.set(pr)" tabindex="0">
+            <td><div class="primary-cell"><span class="doc-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3.75h7l4 4V20a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4.75a1 1 0 0 1 1-1Z" /><path d="M14 4v4h4M9 13h6M9 17h4" /></svg></span><span><strong>{{ pr.id }}</strong><small>{{ pr.title }}</small></span></div></td>
+            <td><div class="supplier-cell"><strong>{{ pr.items.length }} item{{ pr.items.length === 1 ? '' : 's' }}</strong><small>{{ pr.items[0].materialCode || 'Free-text item' }}{{ pr.items.length > 1 ? ' + ' + (pr.items.length - 1) + ' more' : '' }}</small></div></td>
+            <td><div class="supplier-cell"><strong>{{ pr.requester }}</strong><small>{{ pr.department }} · {{ pr.location }}</small></div></td>
+            <td class="date-cell">{{ pr.createdAt | date: 'MMM d, y' }}</td>
+            <td class="amount-cell">{{ store.prValue(pr) | currency: 'USD' : 'symbol' : '1.0-0' }}</td>
+            <td><span [class]="tone(pr.status)"><i></i>{{ pr.status }}</span></td>
+            <td class="date-cell">{{ pr.rfqId ?? 'Create RFQ' }}</td>
+          </tr>
+        } @empty {
+          <tr><td class="empty-state" colspan="7"><span>⌕</span><strong>No requisitions</strong><small>Nothing in this status.</small></td></tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</section>
+
+@if (selected(); as sel) {
+  @let pr = current(sel);
+  <div class="drawer-backdrop" (click)="selected.set(null)">
+    <aside class="detail-drawer" role="dialog" aria-modal="true" [attr.aria-label]="pr.id" (click)="$event.stopPropagation()">
+      <div class="drawer-header">
+        <span class="drawer-kicker">PURCHASE REQUISITION · SAP</span>
+        <button class="icon-button" type="button" aria-label="Close" (click)="selected.set(null)">×</button>
+      </div>
+      <h2>{{ pr.id }}</h2>
+      <p class="drawer-description">{{ pr.title }}</p>
+      <span [class]="tone(pr.status)"><i></i>{{ pr.status }}</span>
+
+      <dl class="detail-grid">
+        <div><dt>Est. value</dt><dd>{{ store.prValue(pr) | currency: 'USD' : 'symbol' : '1.0-0' }}</dd></div>
+        <div><dt>Requester</dt><dd>{{ pr.requester }}</dd></div>
+        <div><dt>Department</dt><dd>{{ pr.department }}</dd></div>
+        <div><dt>Purchase group</dt><dd>{{ pr.purchaseGroup }}</dd></div>
+        <div><dt>Category</dt><dd>{{ pr.category }}</dd></div>
+        <div><dt>Location</dt><dd>{{ pr.location }}</dd></div>
+      </dl>
+
+      <div class="drawer-divider"></div>
+      <div class="drawer-section-label">ITEMS</div>
+      <div class="table-scroll section-gap">
+        <table class="compare">
+          <thead><tr><th>MATERIAL</th><th>QTY</th><th class="amount-cell">EST. PRICE</th></tr></thead>
+          <tbody>
+            @for (i of pr.items; track $index) {
+              <tr><td><strong>{{ i.materialCode || 'Free text' }}</strong><br /><small class="muted">{{ i.description }}</small></td><td>{{ i.quantity }} {{ i.uom }}</td><td class="amount-cell">{{ i.unitPrice | currency: 'USD' }}</td></tr>
+            }
+          </tbody>
+        </table>
+      </div>
+
+      <div class="drawer-actions">
+        @if (pr.rfqId) {
+          <a class="button button-outline" [routerLink]="['/rfqs', pr.rfqId]">Open {{ pr.rfqId }} →</a>
+        } @else if (auth.can('rfq-creator')) {
+          <a class="button button-primary" routerLink="/rfqs/new" [queryParams]="{ pr: pr.id }">Create RFQ from this PR →</a>
+        } @else {
+          <p class="muted">Ready for RFQ — waiting for the RFQ creator.</p>
+        }
+      </div>
+
+      <div class="drawer-divider"></div>
+      <div class="drawer-section-label">AUDIT TRAIL</div>
+      <ul class="timeline">
+        @for (h of historyOf(pr); track $index) {
+          <li><strong>{{ h.action }}</strong><small>{{ h.by }} · {{ h.at | date: 'MMM d, y, h:mm a' }}</small></li>
+        }
+      </ul>
+    </aside>
+  </div>
+}
+
+@if (creating()) {
+  <div class="drawer-backdrop" (click)="creating.set(false)">
+    <aside class="detail-drawer drawer-wide" role="dialog" aria-modal="true" aria-label="Purchase requisition form" (click)="$event.stopPropagation()">
+      <div class="drawer-header">
+        <span class="drawer-kicker">SAP · CREATE PR</span>
+        <button class="icon-button" type="button" aria-label="Close" (click)="creating.set(false)">×</button>
+      </div>
+      <h2>New requisition</h2>
+      <p class="drawer-description">{{ auth.can('rfq-creator') ? 'On save you go straight to RFQ creation — no approval needed.' : 'On save the PR is sent to the RFQ creator — no approval needed.' }}</p>
+
+      <form class="form-grid" (ngSubmit)="save()">
+        @if (formError) { <div class="login-error full" role="alert">{{ formError }}</div> }
+        <label class="field full"><span>PR title</span><input name="title" [(ngModel)]="draft.title" placeholder="e.g. Branch network refresh" /></label>
+
+        <div class="full">
+          <div class="drawer-section-label">ITEMS</div>
+          @for (it of draft.items; track $index; let n = $index) {
+            <div class="line-card">
+              <div class="row" style="justify-content: space-between"><strong>Item {{ n + 1 }}</strong>
+                @if (draft.items.length > 1) { <button class="text-button" type="button" (click)="removeItem(n)">Remove</button> }
+              </div>
+              <div class="form-grid">
+                <label class="field full">
+                  <span>Material</span>
+                  <select [name]="'mat' + n" [ngModel]="it.materialCode" (ngModelChange)="pickMaterial(it, $event)">
+                    <option value="">Free-text item (no material code)</option>
+                    @for (m of materials; track m.code) { <option [value]="m.code">{{ m.code }} — {{ m.description }}</option> }
+                  </select>
+                </label>
+                <label class="field full"><span>Description</span><input [name]="'desc' + n" [(ngModel)]="it.description" /></label>
+                <label class="field"><span>Quantity</span><input type="number" min="1" [name]="'qty' + n" [(ngModel)]="it.quantity" /></label>
+                <label class="field"><span>Unit of measure</span><input [name]="'uom' + n" [(ngModel)]="it.uom" /></label>
+                <label class="field"><span>Est. unit price (USD)</span><input type="number" min="0" step="0.01" [name]="'price' + n" [(ngModel)]="it.unitPrice" /></label>
+                <label class="field"><span>Line value</span><input readonly [value]="(it.quantity * it.unitPrice | currency: 'USD') ?? ''" /></label>
+              </div>
+            </div>
+          }
+          <button class="button button-outline button-sm section-gap" type="button" (click)="addItem()">+ Add item</button>
+        </div>
+
+        <label class="field">
+          <span>Purchase group</span>
+          <select name="group" [ngModel]="draft.purchaseGroup" (ngModelChange)="pickGroup($event)">
+            @for (g of groups; track g.code) { <option [value]="g.code">{{ g.code }} — {{ g.department }}</option> }
+          </select>
+        </label>
+        <label class="field">
+          <span>Purchase category</span>
+          <select name="category" [(ngModel)]="draft.category">
+            @for (c of categories; track c) { <option [value]="c">{{ c }}</option> }
+          </select>
+        </label>
+        <label class="field">
+          <span>Delivery location</span>
+          <select name="location" [(ngModel)]="draft.location">
+            @for (l of locations; track l) { <option [value]="l">{{ l }}</option> }
+          </select>
+        </label>
+        <label class="field"><span>Est. total</span><input readonly [value]="(draftValue() | currency: 'USD') ?? ''" /></label>
+        <div class="form-actions full">
+          <button class="button button-outline" type="button" (click)="creating.set(false)">Cancel</button>
+          <button class="button button-primary" type="submit">{{ auth.can('rfq-creator') ? 'Save & create RFQ →' : 'Save PR' }}</button>
+        </div>
+      </form>
+    </aside>
+  </div>
+}

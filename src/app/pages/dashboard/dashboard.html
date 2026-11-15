@@ -1,0 +1,186 @@
+<section class="page-heading">
+  <div>
+    <div class="eyebrow"><span class="eyebrow-line"></span> PROCUREMENT CONTROL CENTER</div>
+    <h1>{{ greeting() }}, {{ firstName() }} <span class="wave">✦</span></h1>
+    <p>Here’s what’s happening across your procure-to-pay process.</p>
+  </div>
+  <div class="heading-actions">
+    <span class="date-label">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="2" /><path d="M7.5 3v4M16.5 3v4M3.5 9.5h17" /></svg>
+      {{ today | date: 'EEEE, MMMM d, y' }}
+    </span>
+    <button class="button button-outline" type="button" (click)="exportCsv()">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5v11M7.5 10 12 14.5l4.5-4.5M4.5 17v3h15v-3" /></svg>
+      Export
+    </button>
+    @if (auth.can('requester', 'rfq-creator')) {
+      <a class="button button-primary" routerLink="/requisitions" [queryParams]="{ new: 1 }">+ New requisition</a>
+    }
+  </div>
+</section>
+
+<section class="metric-grid" aria-label="Procurement summary">
+  <button class="metric-card" type="button" (click)="filterBy('All stages')">
+    <span class="metric-top"><span class="metric-icon icon-blue"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3.75h7l4 4V20a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4.75a1 1 0 0 1 1-1Z" /><path d="M14 4v4h4M9 13h6M9 17h6" /></svg></span></span>
+    <span class="metric-label">Total requisitions</span>
+    <span class="metric-value">{{ store.prs().length | number: '2.0-0' }}</span>
+    <span class="metric-foot">Across all workflow stages</span>
+  </button>
+  <button class="metric-card" type="button" (click)="filterBy('Awaiting RFQ')">
+    <span class="metric-top"><span class="metric-icon icon-amber"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" /><path d="M12 7v5l3 2" /></svg></span><span class="metric-neutral">Needs attention</span></span>
+    <span class="metric-label">Awaiting RFQ</span>
+    <span class="metric-value">{{ (counts().get('Awaiting RFQ') ?? 0) | number: '2.0-0' }}</span>
+    <span class="metric-foot">PRs ready for RFQ creation</span>
+  </button>
+  <button class="metric-card" type="button" (click)="filterBy('In sourcing')">
+    <span class="metric-top"><span class="metric-icon icon-violet"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="6" r="2.25" /><circle cx="18" cy="12" r="2.25" /><circle cx="6" cy="18" r="2.25" /><path d="M8.25 6H12a3.75 3.75 0 0 1 0 7.5h-3.75M8.25 18H12a3.75 3.75 0 0 0 0-7.5" /></svg></span></span>
+    <span class="metric-label">In sourcing</span>
+    <span class="metric-value">{{ (counts().get('In sourcing') ?? 0) | number: '2.0-0' }}</span>
+    <span class="metric-foot">Open RFQs &amp; technical evaluations</span>
+  </button>
+  <button class="metric-card" type="button" (click)="filterBy('Invoice')">
+    <span class="metric-top"><span class="metric-icon icon-green"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3.5h14v17l-3.5-2-3.5 2-3.5-2L5 20.5v-17Z" /><path d="M8.5 8h7M8.5 12h7M8.5 16h3" /></svg></span><span class="metric-neutral">In approval</span></span>
+    <span class="metric-label">Invoices in workflow</span>
+    <span class="metric-value">{{ (counts().get('Invoice') ?? 0) | number: '2.0-0' }}</span>
+    <span class="metric-foot">Park, department &amp; VAT review</span>
+  </button>
+</section>
+
+<section class="mid-grid">
+  <article class="panel pipeline-panel">
+    <div class="panel-heading">
+      <div><h2>Procurement pipeline</h2><p>Requisitions by current stage</p></div>
+      <button class="text-button" type="button" (click)="filterBy('All stages')">View all <span>→</span></button>
+    </div>
+    <div class="pipeline-content">
+      <div class="pipeline-chart" [style.background]="chart()" role="img" [attr.aria-label]="'Committed PO value ' + (committedValue() | currency: 'USD' : 'symbol' : '1.0-0')">
+        <div class="chart-center">
+          <strong>{{ committedValue() | currency: 'USD' : 'symbol' : '1.0-0' }}</strong>
+          <span>committed PO value</span>
+        </div>
+      </div>
+      <div class="pipeline-legend">
+        @for (s of stages; track s.stage) {
+          <button type="button" (click)="filterBy(s.stage)"><i class="legend-dot" [style.background]="s.color"></i><span>{{ s.stage }}</span><strong>{{ counts().get(s.stage) ?? 0 }}</strong></button>
+        }
+      </div>
+    </div>
+  </article>
+
+  <article class="panel workflow-panel">
+    <div class="panel-heading">
+      <div><h2>My tasks</h2><p>Steps waiting for you as {{ auth.user()?.title }}</p></div>
+      <span class="live-badge"><i></i> {{ store.myTasks().length }} OPEN</span>
+    </div>
+    @if (store.myTasks().length) {
+      <div class="task-list">
+        @for (t of store.myTasks().slice(0, 6); track t.kind + t.ref) {
+          <a [routerLink]="t.link" [queryParams]="t.link === '/rfqs/new' ? { pr: t.ref } : null">
+            <span class="task-kind">{{ t.kind }}</span>
+            <span class="task-ref">{{ t.ref }}</span>
+            <span class="task-label">{{ t.label }}</span>
+            <span class="row-arrow" aria-hidden="true">›</span>
+          </a>
+        }
+      </div>
+    } @else {
+      <p class="muted section-gap">Nothing is waiting for you right now. Sign in with another demo role to move records forward.</p>
+    }
+  </article>
+</section>
+
+<section class="panel requisitions-panel" id="requisitions">
+  <div class="table-heading">
+    <div>
+      <div class="section-title-row"><h2>Requisitions</h2><span class="results-count">{{ rows().length }} records</span></div>
+      <p>Track SAP purchase requisitions across the P2P lifecycle</p>
+    </div>
+    <div class="table-actions">
+      <label class="search-field">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.8" /><path d="m16 16 4.2 4.2" /></svg>
+        <input type="search" placeholder="Search requisitions..." [ngModel]="search()" (ngModelChange)="search.set($event)" aria-label="Search requisitions" />
+      </label>
+      <label class="filter-field">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M7 12h10M10 18h4" /></svg>
+        <select [ngModel]="statusFilter()" (ngModelChange)="statusFilter.set($event)" aria-label="Filter by stage">
+          <option>All stages</option>
+          @for (s of stages; track s.stage) { <option>{{ s.stage }}</option> }
+        </select>
+      </label>
+    </div>
+  </div>
+
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr><th>REQUISITION</th><th>REQUESTER</th><th>SUPPLIER / STATUS</th><th>CREATED</th><th class="amount-cell">AMOUNT</th><th>STAGE</th><th><span class="sr-only">Details</span></th></tr>
+      </thead>
+      <tbody>
+        @for (row of rows(); track row.pr.id) {
+          <tr (click)="selected.set(row.pr)" (keydown.enter)="selected.set(row.pr)" tabindex="0" [attr.aria-label]="'View ' + row.pr.id">
+            <td><div class="primary-cell"><span class="doc-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3.75h7l4 4V20a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4.75a1 1 0 0 1 1-1Z" /><path d="M14 4v4h4M9 13h6M9 17h4" /></svg></span><span><strong>{{ row.pr.id }}</strong><small>{{ row.pr.title }}</small></span></div></td>
+            <td><div class="person-cell"><span class="avatar avatar-blue">{{ row.pr.requester.charAt(0) }}{{ row.pr.requester.split(' ')[1]?.charAt(0) }}</span><span><strong>{{ row.pr.requester }}</strong><small>{{ row.pr.department }}</small></span></div></td>
+            <td><div class="supplier-cell"><strong>{{ supplier(row.pr) }}</strong><small>{{ reference(row.pr) }}</small></div></td>
+            <td class="date-cell">{{ row.pr.createdAt | date: 'MMM d, y' }}</td>
+            <td class="amount-cell">{{ store.prValue(row.pr) | currency: 'USD' : 'symbol' : '1.0-0' }}</td>
+            <td><span [class]="tone(row.stage)"><i></i>{{ row.stage }}</span></td>
+            <td><span class="row-arrow" aria-hidden="true">›</span></td>
+          </tr>
+        } @empty {
+          <tr><td class="empty-state" colspan="7"><span>⌕</span><strong>No requisitions found</strong><small>Try another search or stage filter.</small></td></tr>
+        }
+      </tbody>
+    </table>
+  </div>
+  <div class="table-footer">
+    <span>Showing <strong>{{ rows().length }}</strong> of <strong>{{ store.prs().length }}</strong> records</span>
+    <span class="demo-source"><i></i> Sample data · SAP P2P</span>
+  </div>
+</section>
+
+@if (selected(); as pr) {
+  <div class="drawer-backdrop" (click)="selected.set(null)">
+    <aside class="detail-drawer" role="dialog" aria-modal="true" [attr.aria-label]="'Details for ' + pr.id" (click)="$event.stopPropagation()">
+      <div class="drawer-header">
+        <span class="drawer-kicker">PURCHASE REQUISITION</span>
+        <button class="icon-button" type="button" aria-label="Close details" (click)="selected.set(null)">×</button>
+      </div>
+      <h2>{{ pr.id }}</h2>
+      <p class="drawer-description">{{ pr.title }}</p>
+      <span [class]="tone(store.stage(pr))"><i></i>{{ store.stage(pr) }}</span>
+      <div class="drawer-divider"></div>
+      <div class="drawer-section-label">REQUEST DETAILS</div>
+      <dl class="detail-grid">
+        <div><dt>Requester</dt><dd>{{ pr.requester }}</dd></div>
+        <div><dt>Department</dt><dd>{{ pr.department }}</dd></div>
+        <div><dt>Items</dt><dd>{{ pr.items.length }}</dd></div>
+        <div><dt>Estimated value</dt><dd>{{ store.prValue(pr) | currency: 'USD' : 'symbol' : '1.0-0' }}</dd></div>
+        <div><dt>Supplier</dt><dd>{{ supplier(pr) }}</dd></div>
+        <div><dt>Reference</dt><dd>{{ reference(pr) }}</dd></div>
+        <div><dt>Location</dt><dd>{{ pr.location }}</dd></div>
+        <div><dt>Purchase group</dt><dd>{{ pr.purchaseGroup }} · {{ pr.category }}</dd></div>
+      </dl>
+      <div class="drawer-divider"></div>
+      <div class="drawer-section-label">PROCESS PROGRESS</div>
+      <div class="drawer-progress">
+        @for (step of workflowSteps; track step; let i = $index) {
+          <div class="drawer-step" [class.completed]="i < stepIndex(store.stage(pr))" [class.current]="i === stepIndex(store.stage(pr))">
+            <span class="drawer-step-marker">{{ i < stepIndex(store.stage(pr)) ? '✓' : i + 1 }}</span>
+            <span>{{ step }}</span>
+            @if (i === stepIndex(store.stage(pr))) { <small>Current</small> }
+          </div>
+        }
+      </div>
+      @if (pr.rfqId) {
+        <div class="drawer-actions"><a class="button button-outline" [routerLink]="['/rfqs', pr.rfqId]">Open {{ pr.rfqId }} →</a></div>
+      }
+      <div class="drawer-divider"></div>
+      <div class="drawer-section-label">AUDIT TRAIL</div>
+      <ul class="timeline">
+        @for (h of historyOf(pr); track $index) {
+          <li><strong>{{ h.action }}</strong><small>{{ h.by }} · {{ h.at | date: 'MMM d, y, h:mm a' }}</small></li>
+        }
+      </ul>
+    </aside>
+  </div>
+}

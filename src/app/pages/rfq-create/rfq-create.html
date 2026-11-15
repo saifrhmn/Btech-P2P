@@ -1,0 +1,196 @@
+<section class="page-heading">
+  <div>
+    <div class="eyebrow"><span class="eyebrow-line"></span> STEP 2 · RFQ CREATION</div>
+    <h1>Create RFQ</h1>
+    <p>Build the RFQ from the PR, set specifications, terms, vendors and the RFQ end date, then email it to every vendor.</p>
+  </div>
+  <div class="heading-actions"><a class="button button-outline" routerLink="/rfqs">Cancel</a></div>
+</section>
+
+<div class="wizard">
+  <nav class="panel wizard-steps" aria-label="RFQ steps">
+    @for (s of steps; track s; let i = $index) {
+      <button type="button" [class.current]="step() === i" [class.done]="i < reached() && step() !== i" [disabled]="i > reached()" (click)="goTo(i)">
+        <span class="drawer-step-marker">{{ i < reached() && step() !== i ? '✓' : i + 1 }}</span>{{ s }}
+      </button>
+    }
+  </nav>
+
+  <section class="panel panel-body wizard-body">
+    @switch (step()) {
+      @case (0) {
+        <h2>Select the source PR</h2>
+        <p>Every saved PR is ready for an RFQ — no approval step.</p>
+        <div class="option-grid">
+          @for (p of eligiblePrs(); track p.id) {
+            <button type="button" class="option-card" [class.selected]="draft.prId === p.id" (click)="selectPr(p.id)">
+              <strong>{{ p.id }}</strong>
+              <small>{{ p.title }}</small>
+              <small>{{ p.items.length }} item{{ p.items.length === 1 ? '' : 's' }} · {{ store.prValue(p) | currency: 'USD' : 'symbol' : '1.0-0' }} · {{ p.category }}</small>
+            </button>
+          } @empty {
+            <div class="callout">No PRs are waiting for an RFQ. <a routerLink="/requisitions" [queryParams]="{ new: 1 }">Create a PR</a> first.</div>
+          }
+        </div>
+      }
+
+      @case (1) {
+        <h2>RFQ name &amp; items</h2>
+        <p>Give the RFQ a name vendors will recognize. Free-text PR lines need a material selected.</p>
+        <label class="field" style="max-width: 420px">
+          <span>RFQ name</span>
+          <input name="rfqName" [(ngModel)]="draft.name" placeholder="e.g. Sylhet branch network refresh" />
+        </label>
+        <div class="table-scroll section-gap">
+          <table class="compare">
+            <thead><tr><th>LINE</th><th>MATERIAL</th><th>DESCRIPTION</th><th>QUANTITY</th></tr></thead>
+            <tbody>
+              @for (it of draft.items; track it.lineNo) {
+                <tr>
+                  <td>{{ it.lineNo }}</td>
+                  <td>
+                    <select class="cell-input" [attr.aria-label]="'Material for line ' + it.lineNo" [ngModel]="it.materialCode" (ngModelChange)="selectMaterial(it, $event)">
+                      <option value="">Select material…</option>
+                      @for (m of materials; track m.code) { <option [value]="m.code">{{ m.code }} — {{ m.description }}</option> }
+                    </select>
+                    @if (!it.materialCode) { <span class="tag dev">Not recognized</span> }
+                  </td>
+                  <td><input class="cell-input" [attr.aria-label]="'Description for line ' + it.lineNo" [(ngModel)]="it.description" /></td>
+                  <td>{{ it.quantity }} {{ it.uom }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+        <dl class="detail-grid">
+          <div><dt>Source PR</dt><dd>{{ draft.prId }}</dd></div>
+          <div><dt>Delivery location</dt><dd>{{ pr?.location }}</dd></div>
+        </dl>
+      }
+
+      @case (2) {
+        <h2>Technical specifications</h2>
+        <p>Loaded per material from <a routerLink="/setup">Setup</a>. Adjust them for this RFQ if needed — vendors see these with each item.</p>
+        @for (it of draft.items; track it.lineNo) {
+          <div class="line-card">
+            <div class="row" style="justify-content: space-between">
+              <strong>{{ it.lineNo }} · {{ it.materialCode }} — {{ it.description }}</strong>
+              <span class="row">
+                <button class="text-button" type="button" (click)="reloadSpecs(it)">Reload from setup</button>
+                <button class="text-button" type="button" (click)="saveSpecsToSetup(it)">Save as material default</button>
+              </span>
+            </div>
+            @for (s of it.techSpecs; track $index; let n = $index) {
+              <div class="spec-row">
+                <input [attr.aria-label]="'Specification ' + (n + 1) + ' for line ' + it.lineNo" [(ngModel)]="it.techSpecs[n]" placeholder="Specification requirement" />
+                <button class="icon-button" type="button" [attr.aria-label]="'Remove specification ' + (n + 1)" (click)="removeSpec(it, n)">×</button>
+              </div>
+            } @empty {
+              <p class="muted">No technical specification set up for this material.</p>
+            }
+            <button class="button button-outline button-sm" type="button" (click)="addSpec(it)">+ Add specification</button>
+          </div>
+        }
+      }
+
+      @case (3) {
+        <h2>Terms &amp; conditions</h2>
+        <p>Templates are maintained in <a routerLink="/setup" [queryParams]="{ tab: 'terms' }">Setup</a>. Vendors must accept them when quoting.</p>
+        <div class="option-grid">
+          @for (t of store.terms(); track t.id) {
+            <button type="button" class="option-card" [class.selected]="draft.termsId === t.id" (click)="draft.termsId = t.id">
+              <strong>{{ t.name }}</strong>
+              <ul>@for (c of t.clauses; track $index) { <li>{{ c }}</li> }</ul>
+            </button>
+          }
+        </div>
+      }
+
+      @case (4) {
+        <h2>Vendors</h2>
+        <p>Vendors matching the PR category ({{ pr?.category }}) are preselected. Add a new vendor if needed.</p>
+        <div class="option-grid">
+          @for (v of store.vendors(); track v.id) {
+            <button type="button" class="option-card" [class.selected]="draft.vendorIds.includes(v.id)" [attr.aria-pressed]="draft.vendorIds.includes(v.id)" (click)="toggleVendor(v.id)">
+              <strong>{{ draft.vendorIds.includes(v.id) ? '✓ ' : '' }}{{ v.name }}</strong>
+              <small>{{ v.id }} · {{ v.category }}</small>
+              <small>{{ v.email }}</small>
+            </button>
+          }
+        </div>
+        @if (addingVendor()) {
+          <div class="line-card section-gap">
+            <strong>New vendor</strong>
+            <form class="form-grid" (ngSubmit)="saveVendor()">
+              <label class="field"><span>Vendor name</span><input name="vName" [(ngModel)]="newVendor.name" /></label>
+              <label class="field"><span>Email (RFQ invitations go here)</span><input type="email" name="vEmail" [(ngModel)]="newVendor.email" /></label>
+              <label class="field"><span>Contact person</span><input name="vContact" [(ngModel)]="newVendor.contactPerson" /></label>
+              <label class="field"><span>Phone</span><input name="vPhone" [(ngModel)]="newVendor.phone" /></label>
+              <label class="field">
+                <span>Category</span>
+                <select name="vCat" [(ngModel)]="newVendor.category">
+                  @for (c of categories; track c) { <option [value]="c">{{ c }}</option> }
+                </select>
+              </label>
+              <div class="form-actions full">
+                <button class="button button-outline" type="button" (click)="addingVendor.set(false)">Cancel</button>
+                <button class="button button-primary" type="submit">Add vendor &amp; select</button>
+              </div>
+            </form>
+          </div>
+        } @else {
+          <button class="button button-outline section-gap" type="button" (click)="startAddVendor()">+ Add new vendor</button>
+        }
+      }
+
+      @case (5) {
+        <h2>RFQ validation</h2>
+        <p>Set the RFQ end date. Vendors can quote until then — after this date the RFQ is no longer valid and technical evaluation can start.</p>
+        <label class="field section-gap" style="max-width: 280px">
+          <span>RFQ end date &amp; time</span>
+          <input type="datetime-local" name="validUntil" [min]="minValidity" [(ngModel)]="draft.validUntil" />
+        </label>
+        @if (draft.validUntil) {
+          <div class="callout section-gap">Valid until <strong>{{ draft.validUntil | date: 'EEEE, MMM d, y, h:mm a' }}</strong>.</div>
+        }
+      }
+
+      @case (6) {
+        <h2>Review &amp; send</h2>
+        <p>Saving the RFQ emails the invitation to each selected vendor.</p>
+        <dl class="detail-grid">
+          <div><dt>RFQ name</dt><dd>{{ draft.name }}</dd></div>
+          <div><dt>Source PR</dt><dd>{{ draft.prId }}</dd></div>
+          <div><dt>Terms</dt><dd>{{ terms()?.name }}</dd></div>
+          <div><dt>Valid until</dt><dd>{{ draft.validUntil | date: 'MMM d, y, h:mm a' }}</dd></div>
+        </dl>
+        <div class="drawer-section-label section-gap">ITEMS ({{ draft.items.length }})</div>
+        <div class="table-scroll section-gap">
+          <table class="compare">
+            <thead><tr><th>LINE</th><th>MATERIAL</th><th>QUANTITY</th><th>TECHNICAL SPECS</th></tr></thead>
+            <tbody>
+              @for (it of draft.items; track it.lineNo) {
+                <tr><td>{{ it.lineNo }}</td><td><strong>{{ it.materialCode }}</strong> {{ it.description }}</td><td>{{ it.quantity }} {{ it.uom }}</td><td>{{ it.techSpecs.length }} requirement(s)</td></tr>
+              }
+            </tbody>
+          </table>
+        </div>
+        <div class="drawer-section-label section-gap">EMAIL INVITATIONS ({{ draft.vendorIds.length }})</div>
+        <ul class="mail-preview">
+          @for (v of selectedVendors(); track v.id) { <li><strong>{{ v.name }}</strong><span class="mono">{{ v.email }}</span></li> }
+        </ul>
+      }
+    }
+
+    @if (error()) { <div class="login-error section-gap" role="alert">{{ error() }}</div> }
+
+    <div class="form-actions">
+      @if (step() > 0) { <button class="button button-outline" type="button" (click)="goTo(step() - 1)">← Back</button> }
+      @if (step() < steps.length - 1) {
+        <button class="button button-primary" type="button" (click)="next()">Continue →</button>
+      } @else {
+        <button class="button button-primary" type="button" (click)="save()">Save RFQ &amp; email vendors</button>
+      }
+    </div>
+  </section>
+</div>

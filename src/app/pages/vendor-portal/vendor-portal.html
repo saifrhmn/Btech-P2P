@@ -1,0 +1,197 @@
+<section class="page-heading">
+  <div>
+    <div class="eyebrow"><span class="eyebrow-line"></span> VENDOR PORTAL</div>
+    <h1>{{ vendorName() }}</h1>
+    <p>Quote a price for each RFQ item before the RFQ end date, and raise invoices after goods receipt.</p>
+  </div>
+  @if (isAdmin()) {
+    <div class="heading-actions">
+      <label class="field" style="min-width: 240px">
+        <span>Acting as vendor (admin demo)</span>
+        <select [ngModel]="vendorId()" (ngModelChange)="vendorId.set($event)">
+          @for (v of store.vendors(); track v.id) { <option [value]="v.id">{{ v.name }}</option> }
+        </select>
+      </label>
+    </div>
+  }
+</section>
+
+<section class="panel">
+  <div class="tabs" role="tablist">
+    @for (t of tabs; track t) {
+      <button type="button" role="tab" [class.active]="tab() === t" [attr.aria-selected]="tab() === t" (click)="tab.set(t)">
+        {{ t }}<span class="results-count">{{ count(t) }}</span>
+      </button>
+    }
+  </div>
+
+  @switch (tab()) {
+    @case ('Inbox') {
+      <div class="mail-list panel-body">
+        @for (m of myMails(); track m.id) {
+          <details>
+            <summary><strong>{{ m.subject }}</strong><small>{{ m.to }} · {{ m.sentAt | date: 'MMM d, y, h:mm a' }}</small></summary>
+            <div class="mail-body">
+              <pre>{{ m.body }}</pre>
+              <button class="button button-outline button-sm section-gap" type="button" (click)="openFromMail(m.rfqId)">Open {{ m.rfqId }} →</button>
+            </div>
+          </details>
+        } @empty {
+          <p class="muted">No RFQ emails yet.</p>
+        }
+      </div>
+    }
+
+    @case ('RFQs') {
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th>RFQ</th><th>ITEMS</th><th>VALID UNTIL</th><th class="amount-cell">MY QUOTE</th><th>STATUS</th><th></th></tr></thead>
+          <tbody>
+            @for (r of myRfqs(); track r.id) {
+              <tr>
+                <td><div class="primary-cell"><span><strong>{{ r.name }}</strong><small>{{ r.id }}</small></span></div></td>
+                <td class="date-cell">{{ r.items.length }}</td>
+                <td class="date-cell">{{ r.validUntil | date: 'MMM d, h:mm a' }}</td>
+                <td class="amount-cell">{{ myQuote(r) ? (store.quoteTotal(r, myQuote(r)!) | currency: 'USD' : 'symbol' : '1.0-0') : '—' }}</td>
+                <td><span [class]="rfqTone(r)"><i></i>{{ rfqState(r) }}</span></td>
+                <td>
+                  @if (canQuote(r)) {
+                    <button class="button button-primary button-sm" type="button" (click)="startQuote(r)">{{ myQuote(r) ? 'Revise prices' : 'Give prices' }}</button>
+                  }
+                </td>
+              </tr>
+            } @empty {
+              <tr><td class="empty-state" colspan="6"><span>⌕</span><strong>No RFQ invitations</strong></td></tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+
+    @case ('Orders') {
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th>ORDER</th><th>ERP RFQ NO.</th><th>LOCATION</th><th class="amount-cell">VALUE</th><th>GRN</th><th>STATUS</th><th></th></tr></thead>
+          <tbody>
+            @for (po of myPos(); track po.id) {
+              <tr>
+                <td><div class="primary-cell"><span><strong>{{ po.id }}</strong><small>{{ po.description }} · {{ po.lines.length }} item(s)</small></span></div></td>
+                <td class="date-cell mono">{{ po.erpRfqNo }}</td>
+                <td class="date-cell">{{ po.location }}</td>
+                <td class="amount-cell">{{ po.amount | currency: 'USD' : 'symbol' : '1.0-0' }}</td>
+                <td class="date-cell">{{ po.grn ? po.grn.number : 'Awaiting GRN' }}</td>
+                <td><span [class]="tone(po.status)"><i></i>{{ po.status }}</span></td>
+                <td>
+                  @if (po.status === 'Goods received') {
+                    <button class="button button-primary button-sm" type="button" (click)="startInvoice(po)">Create invoice</button>
+                  } @else if (po.status === 'Issued') {
+                    <span class="date-cell">Invoice after GRN</span>
+                  }
+                </td>
+              </tr>
+            } @empty {
+              <tr><td class="empty-state" colspan="7"><span>⌕</span><strong>No orders</strong></td></tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+
+    @case ('Invoices') {
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th>INVOICE</th><th>ORDER</th><th>SUBMITTED</th><th>PARK NO.</th><th class="amount-cell">GROSS</th><th>STATUS</th></tr></thead>
+          <tbody>
+            @for (inv of myInvoices(); track inv.id) {
+              <tr>
+                <td><div class="primary-cell"><span><strong>{{ inv.vendorInvoiceNo }}</strong><small>{{ inv.id }}</small></span></div></td>
+                <td class="date-cell">{{ inv.poId }}</td>
+                <td class="date-cell">{{ inv.submittedAt | date: 'MMM d, y' }}</td>
+                <td class="date-cell mono">{{ inv.parkNo ?? 'Not parked yet' }}</td>
+                <td class="amount-cell">{{ inv.netAmount + inv.vatAmount | currency: 'USD' }}</td>
+                <td><span [class]="tone(inv.status)"><i></i>{{ inv.status }}{{ inv.paymentRef ? ' · ' + inv.paymentRef : '' }}</span></td>
+              </tr>
+            } @empty {
+              <tr><td class="empty-state" colspan="6"><span>⌕</span><strong>No invoices yet</strong></td></tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  }
+</section>
+
+@if (quoting(); as r) {
+  <div class="drawer-backdrop" (click)="quoting.set(null)">
+    <aside class="detail-drawer drawer-wide" role="dialog" aria-modal="true" [attr.aria-label]="'Quotation for ' + r.id" (click)="$event.stopPropagation()">
+      <div class="drawer-header">
+        <span class="drawer-kicker">QUOTATION · {{ r.id }}</span>
+        <button class="icon-button" type="button" aria-label="Close" (click)="quoting.set(null)">×</button>
+      </div>
+      <h2>{{ r.name }}</h2>
+      <p class="drawer-description">Valid until {{ r.validUntil | date: 'MMM d, y, h:mm a' }}. Leave a price blank to skip an item.</p>
+
+      <div class="drawer-section-label">PRICE PER ITEM</div>
+      @for (it of r.items; track it.lineNo) {
+        <div class="line-card">
+          <div class="row" style="justify-content: space-between"><strong>{{ it.lineNo }} · {{ it.description }}</strong><span class="muted">{{ it.quantity }} {{ it.uom }}</span></div>
+          @if (it.techSpecs.length) {
+            <ul class="clause-list">@for (s of it.techSpecs; track $index) { <li>{{ s }}</li> }</ul>
+          }
+          <div class="form-grid">
+            <label class="field"><span>Unit price (USD / {{ it.uom }})</span><input type="number" min="0" step="0.01" [attr.aria-label]="'Unit price for line ' + it.lineNo" [(ngModel)]="prices[it.lineNo]" /></label>
+            <label class="field"><span>Line total</span><input readonly [value]="(+(prices[it.lineNo] || 0) * it.quantity | currency: 'USD') ?? ''" /></label>
+          </div>
+        </div>
+      }
+
+      <div class="form-grid section-gap">
+        <label class="field"><span>Delivery lead time (days)</span><input type="number" min="1" [(ngModel)]="deliveryDays" /></label>
+        <label class="field"><span>Quotation total</span><input readonly [value]="(quoteTotal(r) | currency: 'USD') ?? ''" /></label>
+        <label class="field full"><span>Remarks</span><textarea [(ngModel)]="remarks"></textarea></label>
+      </div>
+
+      <div class="drawer-section-label section-gap">TERMS &amp; CONDITIONS</div>
+      <ul class="clause-list">@for (c of r.terms; track $index) { <li>{{ c }}</li> }</ul>
+      <label class="row section-gap" style="font-size: 10px"><input type="checkbox" [(ngModel)]="acceptTerms" /> I accept the RFQ terms and conditions</label>
+      <div class="drawer-actions">
+        <button class="button button-primary" type="button" (click)="submitQuote(r)">Submit quotation</button>
+        <button class="button button-outline" type="button" (click)="quoting.set(null)">Cancel</button>
+      </div>
+    </aside>
+  </div>
+}
+
+@if (invoicing(); as po) {
+  <div class="drawer-backdrop" (click)="invoicing.set(null)">
+    <aside class="detail-drawer" role="dialog" aria-modal="true" [attr.aria-label]="'Invoice for ' + po.id" (click)="$event.stopPropagation()">
+      <div class="drawer-header">
+        <span class="drawer-kicker">CREATE INVOICE · {{ po.id }}</span>
+        <button class="icon-button" type="button" aria-label="Close" (click)="invoicing.set(null)">×</button>
+      </div>
+      <h2>{{ po.description }}</h2>
+      <p class="drawer-description">ERP RFQ {{ po.erpRfqNo }} · GRN {{ po.grn?.number }} at {{ po.location }}</p>
+      <div class="table-scroll">
+        <table class="compare">
+          <thead><tr><th>ITEM</th><th>RECEIVED</th><th class="amount-cell">UNIT PRICE</th></tr></thead>
+          <tbody>
+            @for (l of po.lines; track l.lineNo) {
+              <tr><td>{{ l.lineNo }} · {{ l.description }}</td><td>{{ po.grn?.received?.[l.lineNo] ?? 0 }} / {{ l.quantity }} {{ l.uom }}</td><td class="amount-cell">{{ l.unitPrice | currency: 'USD' }}</td></tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      <div class="form-grid section-gap">
+        <label class="field full"><span>Your invoice number</span><input [(ngModel)]="invoiceNo" placeholder="e.g. INV-0001" /></label>
+        <label class="field"><span>Net amount (USD)</span><input type="number" min="0" step="0.01" [(ngModel)]="netAmount" /></label>
+        <label class="field"><span>VAT (USD)</span><input type="number" min="0" step="0.01" [(ngModel)]="vatAmount" /></label>
+        <label class="field full"><span>Gross</span><input readonly [value]="(+netAmount + +vatAmount | currency: 'USD') ?? ''" /></label>
+      </div>
+      <div class="callout section-gap">After you submit, the company parks the invoice (Invoice Park No.), then it goes through department and VAT approval before payment.</div>
+      <div class="drawer-actions">
+        <button class="button button-primary" type="button" (click)="submitInvoice(po)">Submit invoice</button>
+        <button class="button button-outline" type="button" (click)="invoicing.set(null)">Cancel</button>
+      </div>
+    </aside>
+  </div>
+}
