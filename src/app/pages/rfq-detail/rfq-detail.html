@@ -64,7 +64,7 @@
                         @let ev = evalOf(r, q.vendorId, it.lineNo);
                         <td [class.cell-best]="isBest(q.vendorId, it.lineNo)">
                           @if (p) {
-                            <div class="eval-price">{{ p | currency: 'USD' }}@if (isBest(q.vendorId, it.lineNo)) { <span class="tag">Lowest</span> }</div>
+                            <div class="eval-price">{{ p | currency: 'BDT' : 'BDT ' }}@if (isBest(q.vendorId, it.lineNo)) { <span class="tag">Lowest</span> }</div>
                             <div class="yn" role="group" [attr.aria-label]="'Technical evaluation for ' + vendor(q.vendorId) + ', line ' + it.lineNo">
                               <button type="button" class="yes" [class.on]="ev === true" [attr.aria-pressed]="ev === true" [disabled]="!canEvaluate()" (click)="store.setTechEval(r.id, q.vendorId, it.lineNo, true)">Yes</button>
                               <button type="button" class="no" [class.on]="ev === false" [attr.aria-pressed]="ev === false" [disabled]="!canEvaluate()" (click)="store.setTechEval(r.id, q.vendorId, it.lineNo, false)">No</button>
@@ -83,7 +83,7 @@
             @if (pendingCount(r)) {
               <div class="callout warn section-gap">{{ pendingCount(r) }} offer(s) still need a Yes / No decision.</div>
             } @else {
-              <div class="callout ok section-gap"><strong>Technical evaluation complete.</strong> Processing will award {{ awards().length }} of {{ r.items.length }} item(s) — total {{ awardTotal() | currency: 'USD' : 'symbol' : '1.0-0' }}.</div>
+              <div class="callout ok section-gap"><strong>Technical evaluation complete.</strong> Processing will award {{ awards().length }} of {{ r.items.length }} item(s) — total {{ awardTotal() | currency: 'BDT' : 'BDT ' : '1.0-0' }}.</div>
               @if (auth.can('rfq-creator')) {
                 <div class="drawer-actions"><button class="button button-primary" type="button" [disabled]="!awards().length" (click)="store.processRfq(r.id)">Process RFQ — select lowest price &amp; create ERP RFQ No.</button></div>
               } @else {
@@ -114,8 +114,8 @@
                     <td>{{ it.lineNo }}</td>
                     <td>{{ it.description }} <small class="muted">· {{ it.quantity }} {{ it.uom }}</small></td>
                     <td>{{ a ? vendor(a.vendorId) : 'No accepted offer' }}</td>
-                    <td class="amount-cell">{{ a ? (a.unitPrice | currency: 'USD') : '—' }}</td>
-                    <td class="amount-cell">{{ a ? (a.unitPrice * it.quantity | currency: 'USD' : 'symbol' : '1.0-0') : '—' }}</td>
+                    <td class="amount-cell">{{ a ? (a.unitPrice | currency: 'BDT' : 'BDT ') : '—' }}</td>
+                    <td class="amount-cell">{{ a ? (a.unitPrice * it.quantity | currency: 'BDT' : 'BDT ' : '1.0-0') : '—' }}</td>
                   </tr>
                 }
               </tbody>
@@ -143,8 +143,8 @@
                   <td class="date-cell">{{ q ? (q.submittedAt | date: 'MMM d, h:mm a') : 'Not submitted' }}</td>
                   @if (!sealed()) {
                     @if (q) {
-                      @for (it of r.items; track it.lineNo) { <td class="amount-cell">{{ price(q, it) ? (price(q, it)! | currency: 'USD') : '—' }}</td> }
-                      <td class="amount-cell">{{ store.quoteTotal(r, q) | currency: 'USD' : 'symbol' : '1.0-0' }}</td>
+                      @for (it of r.items; track it.lineNo) { <td class="amount-cell">{{ price(q, it) ? (price(q, it)! | currency: 'BDT' : 'BDT ') : '—' }}</td> }
+                      <td class="amount-cell">{{ store.quoteTotal(r, q) | currency: 'BDT' : 'BDT ' : '1.0-0' }}</td>
                       <td>{{ q.deliveryDays }} days</td>
                     } @else {
                       <td [attr.colspan]="r.items.length + 2" class="date-cell">—</td>

@@ -22,7 +22,7 @@
             <td class="date-cell">{{ store.vendorName(inv.vendorId) }}</td>
             <td><div class="supplier-cell"><strong>{{ inv.poId }}</strong><small class="mono">{{ inv.parkNo ?? "Not parked" }}</small></div></td>
             <td class="date-cell">{{ inv.submittedAt | date: 'MMM d, y' }}</td>
-            <td class="amount-cell">{{ inv.netAmount + inv.vatAmount | currency: 'USD' : 'symbol' : '1.0-0' }}</td>
+            <td class="amount-cell">{{ inv.netAmount + inv.vatAmount | currency: 'BDT' : 'BDT ' : '1.0-0' }}</td>
             <td class="date-cell">{{ inv.status === 'Awaiting park' ? 'Accounts — park invoice' : pendingLabel(inv) || (inv.status === 'Posted' ? 'Accounts in Charge — payment' : '—') }}</td>
             <td><span [class]="tone(inv.status)"><i></i>{{ inv.status }}</span></td>
           </tr>
@@ -47,17 +47,17 @@
       <span [class]="tone(inv.status)"><i></i>{{ inv.status }}</span>
 
       <dl class="detail-grid">
-        <div><dt>Net amount</dt><dd>{{ inv.netAmount | currency: 'USD' }}</dd></div>
-        <div><dt>VAT</dt><dd>{{ inv.vatAmount | currency: 'USD' }}</dd></div>
-        <div><dt>Gross</dt><dd>{{ inv.netAmount + inv.vatAmount | currency: 'USD' }}</dd></div>
-        <div><dt>Order value</dt><dd>{{ po?.amount | currency: 'USD' }}</dd></div>
+        <div><dt>Net amount</dt><dd>{{ inv.netAmount | currency: 'BDT' : 'BDT ' }}</dd></div>
+        <div><dt>VAT</dt><dd>{{ inv.vatAmount | currency: 'BDT' : 'BDT ' }}</dd></div>
+        <div><dt>Gross</dt><dd>{{ inv.netAmount + inv.vatAmount | currency: 'BDT' : 'BDT ' }}</dd></div>
+        <div><dt>Order value</dt><dd>{{ po?.amount | currency: 'BDT' : 'BDT ' }}</dd></div>
         <div><dt>Order / ERP RFQ</dt><dd>{{ inv.poId }} · <span class="mono">{{ po?.erpRfqNo }}</span></dd></div><div><dt>Invoice Park No.</dt><dd class="mono">{{ inv.parkNo ?? "Not parked yet" }}</dd></div>
         <div><dt>GRN</dt><dd class="mono">{{ po?.grn?.number ?? '—' }}</dd></div>
         <div><dt>Routing</dt><dd>{{ po?.purchaseGroup }} · {{ po?.location }}</dd></div>
         <div><dt>SAP document</dt><dd class="mono">{{ inv.sapDocument ?? 'Not posted' }}</dd></div>
       </dl>
       @if (po && inv.netAmount !== po.amount) {
-        <div class="callout warn section-gap">Net amount differs from the order value by {{ inv.netAmount - po.amount | currency: 'USD' }}. Review before approving.</div>
+        <div class="callout warn section-gap">Net amount differs from the order value by {{ inv.netAmount - po.amount | currency: 'BDT' : 'BDT ' }}. Review before approving.</div>
       }
 
       <div class="drawer-divider"></div>

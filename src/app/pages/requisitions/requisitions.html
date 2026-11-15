@@ -31,7 +31,7 @@
             <td><div class="supplier-cell"><strong>{{ pr.items.length }} item{{ pr.items.length === 1 ? '' : 's' }}</strong><small>{{ pr.items[0].materialCode || 'Free-text item' }}{{ pr.items.length > 1 ? ' + ' + (pr.items.length - 1) + ' more' : '' }}</small></div></td>
             <td><div class="supplier-cell"><strong>{{ pr.requester }}</strong><small>{{ pr.department }} · {{ pr.location }}</small></div></td>
             <td class="date-cell">{{ pr.createdAt | date: 'MMM d, y' }}</td>
-            <td class="amount-cell">{{ store.prValue(pr) | currency: 'USD' : 'symbol' : '1.0-0' }}</td>
+            <td class="amount-cell">{{ store.prValue(pr) | currency: 'BDT' : 'BDT ' : '1.0-0' }}</td>
             <td><span [class]="tone(pr.status)"><i></i>{{ pr.status }}</span></td>
             <td class="date-cell">{{ pr.rfqId ?? 'Create RFQ' }}</td>
           </tr>
@@ -56,7 +56,7 @@
       <span [class]="tone(pr.status)"><i></i>{{ pr.status }}</span>
 
       <dl class="detail-grid">
-        <div><dt>Est. value</dt><dd>{{ store.prValue(pr) | currency: 'USD' : 'symbol' : '1.0-0' }}</dd></div>
+        <div><dt>Est. value</dt><dd>{{ store.prValue(pr) | currency: 'BDT' : 'BDT ' : '1.0-0' }}</dd></div>
         <div><dt>Requester</dt><dd>{{ pr.requester }}</dd></div>
         <div><dt>Department</dt><dd>{{ pr.department }}</dd></div>
         <div><dt>Purchase group</dt><dd>{{ pr.purchaseGroup }}</dd></div>
@@ -71,7 +71,7 @@
           <thead><tr><th>MATERIAL</th><th>QTY</th><th class="amount-cell">EST. PRICE</th></tr></thead>
           <tbody>
             @for (i of pr.items; track $index) {
-              <tr><td><strong>{{ i.materialCode || 'Free text' }}</strong><br /><small class="muted">{{ i.description }}</small></td><td>{{ i.quantity }} {{ i.uom }}</td><td class="amount-cell">{{ i.unitPrice | currency: 'USD' }}</td></tr>
+              <tr><td><strong>{{ i.materialCode || 'Free text' }}</strong><br /><small class="muted">{{ i.description }}</small></td><td>{{ i.quantity }} {{ i.uom }}</td><td class="amount-cell">{{ i.unitPrice | currency: 'BDT' : 'BDT ' }}</td></tr>
             }
           </tbody>
         </table>
@@ -130,8 +130,8 @@
                 <label class="field full"><span>Description</span><input [name]="'desc' + n" [(ngModel)]="it.description" /></label>
                 <label class="field"><span>Quantity</span><input type="number" min="1" [name]="'qty' + n" [(ngModel)]="it.quantity" /></label>
                 <label class="field"><span>Unit of measure</span><input [name]="'uom' + n" [(ngModel)]="it.uom" /></label>
-                <label class="field"><span>Est. unit price (USD)</span><input type="number" min="0" step="0.01" [name]="'price' + n" [(ngModel)]="it.unitPrice" /></label>
-                <label class="field"><span>Line value</span><input readonly [value]="(it.quantity * it.unitPrice | currency: 'USD') ?? ''" /></label>
+                <label class="field"><span>Est. unit price (BDT)</span><input type="number" min="0" step="0.01" [name]="'price' + n" [(ngModel)]="it.unitPrice" /></label>
+                <label class="field"><span>Line value</span><input readonly [value]="(it.quantity * it.unitPrice | currency: 'BDT' : 'BDT ') ?? ''" /></label>
               </div>
             </div>
           }
@@ -156,7 +156,7 @@
             @for (l of locations; track l) { <option [value]="l">{{ l }}</option> }
           </select>
         </label>
-        <label class="field"><span>Est. total</span><input readonly [value]="(draftValue() | currency: 'USD') ?? ''" /></label>
+        <label class="field"><span>Est. total</span><input readonly [value]="(draftValue() | currency: 'BDT' : 'BDT ') ?? ''" /></label>
         <div class="form-actions full">
           <button class="button button-outline" type="button" (click)="creating.set(false)">Cancel</button>
           <button class="button button-primary" type="submit">{{ auth.can('rfq-creator') ? 'Save & create RFQ →' : 'Save PR' }}</button>

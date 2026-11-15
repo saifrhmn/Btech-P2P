@@ -26,7 +26,7 @@
             <button type="button" class="option-card" [class.selected]="draft.prId === p.id" (click)="selectPr(p.id)">
               <strong>{{ p.id }}</strong>
               <small>{{ p.title }}</small>
-              <small>{{ p.items.length }} item{{ p.items.length === 1 ? '' : 's' }} · {{ store.prValue(p) | currency: 'USD' : 'symbol' : '1.0-0' }} · {{ p.category }}</small>
+              <small>{{ p.items.length }} item{{ p.items.length === 1 ? '' : 's' }} · {{ store.prValue(p) | currency: 'BDT' : 'BDT ' : '1.0-0' }} · {{ p.category }}</small>
             </button>
           } @empty {
             <div class="callout">No PRs are waiting for an RFQ. <a routerLink="/requisitions" [queryParams]="{ new: 1 }">Create a PR</a> first.</div>

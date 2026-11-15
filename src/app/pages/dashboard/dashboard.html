@@ -53,9 +53,9 @@
       <button class="text-button" type="button" (click)="filterBy('All stages')">View all <span>→</span></button>
     </div>
     <div class="pipeline-content">
-      <div class="pipeline-chart" [style.background]="chart()" role="img" [attr.aria-label]="'Committed PO value ' + (committedValue() | currency: 'USD' : 'symbol' : '1.0-0')">
+      <div class="pipeline-chart" [style.background]="chart()" role="img" [attr.aria-label]="'Committed PO value ' + (committedValue() | currency: 'BDT' : 'BDT ' : '1.0-0')">
         <div class="chart-center">
-          <strong>{{ committedValue() | currency: 'USD' : 'symbol' : '1.0-0' }}</strong>
+          <strong>{{ committedValue() | currency: 'BDT' : 'BDT ' : '1.0-0' }}</strong>
           <span>committed PO value</span>
         </div>
       </div>
@@ -122,7 +122,7 @@
             <td><div class="person-cell"><span class="avatar avatar-blue">{{ row.pr.requester.charAt(0) }}{{ row.pr.requester.split(' ')[1]?.charAt(0) }}</span><span><strong>{{ row.pr.requester }}</strong><small>{{ row.pr.department }}</small></span></div></td>
             <td><div class="supplier-cell"><strong>{{ supplier(row.pr) }}</strong><small>{{ reference(row.pr) }}</small></div></td>
             <td class="date-cell">{{ row.pr.createdAt | date: 'MMM d, y' }}</td>
-            <td class="amount-cell">{{ store.prValue(row.pr) | currency: 'USD' : 'symbol' : '1.0-0' }}</td>
+            <td class="amount-cell">{{ store.prValue(row.pr) | currency: 'BDT' : 'BDT ' : '1.0-0' }}</td>
             <td><span [class]="tone(row.stage)"><i></i>{{ row.stage }}</span></td>
             <td><span class="row-arrow" aria-hidden="true">›</span></td>
           </tr>
@@ -154,7 +154,7 @@
         <div><dt>Requester</dt><dd>{{ pr.requester }}</dd></div>
         <div><dt>Department</dt><dd>{{ pr.department }}</dd></div>
         <div><dt>Items</dt><dd>{{ pr.items.length }}</dd></div>
-        <div><dt>Estimated value</dt><dd>{{ store.prValue(pr) | currency: 'USD' : 'symbol' : '1.0-0' }}</dd></div>
+        <div><dt>Estimated value</dt><dd>{{ store.prValue(pr) | currency: 'BDT' : 'BDT ' : '1.0-0' }}</dd></div>
         <div><dt>Supplier</dt><dd>{{ supplier(pr) }}</dd></div>
         <div><dt>Reference</dt><dd>{{ reference(pr) }}</dd></div>
         <div><dt>Location</dt><dd>{{ pr.location }}</dd></div>

@@ -22,7 +22,7 @@
             <td><div class="supplier-cell"><strong>{{ store.vendorName(po.vendorId) }}</strong><small>{{ po.vendorId }}</small></div></td>
             <td><div class="supplier-cell"><strong class="mono">{{ po.erpRfqNo }}</strong><small>{{ po.rfqId }} · {{ po.prId }}</small></div></td>
             <td><div class="supplier-cell"><strong>{{ po.location }}</strong><small>{{ po.purchaseGroup }}</small></div></td>
-            <td class="amount-cell">{{ po.amount | currency: 'USD' : 'symbol' : '1.0-0' }}</td>
+            <td class="amount-cell">{{ po.amount | currency: 'BDT' : 'BDT ' : '1.0-0' }}</td>
             <td class="date-cell">{{ po.grn?.number ?? 'Pending' }}</td>
             <td><span [class]="tone(po.status)"><i></i>{{ po.status }}</span></td>
           </tr>
@@ -49,7 +49,7 @@
         <div><dt>Vendor</dt><dd>{{ store.vendorName(po.vendorId) }}</dd></div>
         <div><dt>ERP RFQ No.</dt><dd class="mono">{{ po.erpRfqNo }}</dd></div>
         <div><dt>Source RFQ</dt><dd><a [routerLink]="['/rfqs', po.rfqId]">{{ po.rfqId }}</a></dd></div>
-        <div><dt>Order value</dt><dd>{{ po.amount | currency: 'USD' : 'symbol' : '1.0-0' }}</dd></div>
+        <div><dt>Order value</dt><dd>{{ po.amount | currency: 'BDT' : 'BDT ' : '1.0-0' }}</dd></div>
         <div><dt>Created</dt><dd>{{ po.createdAt | date: 'MMM d, y' }}</dd></div>
         <div><dt>Location</dt><dd>{{ po.location }} · {{ po.purchaseGroup }}</dd></div>
       </dl>
@@ -61,7 +61,7 @@
           <div><dt>GRN number</dt><dd class="mono">{{ grn.number }}</dd></div>
           <div><dt>Posted</dt><dd>{{ grn.postedAt | date: 'MMM d, y, h:mm a' }}</dd></div>
           <div><dt>Recorded by</dt><dd>{{ grn.recordedBy }}</dd></div>
-          <div><dt>Received value</dt><dd>{{ store.grnValue(po.id) | currency: 'USD' : 'symbol' : '1.0-0' }}</dd></div>
+          <div><dt>Received value</dt><dd>{{ store.grnValue(po.id) | currency: 'BDT' : 'BDT ' : '1.0-0' }}</dd></div>
         </dl>
       }
       <div class="table-scroll section-gap">
@@ -72,7 +72,7 @@
               <tr>
                 <td>{{ l.lineNo }} · {{ l.description }}</td>
                 <td>{{ l.quantity }} {{ l.uom }}</td>
-                <td class="amount-cell">{{ l.unitPrice | currency: 'USD' }}</td>
+                <td class="amount-cell">{{ l.unitPrice | currency: 'BDT' : 'BDT ' }}</td>
                 <td>
                   @if (po.grn) {
                     {{ po.grn.received[l.lineNo] || 0 }} {{ l.uom }}

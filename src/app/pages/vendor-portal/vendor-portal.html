@@ -52,7 +52,7 @@
                 <td><div class="primary-cell"><span><strong>{{ r.name }}</strong><small>{{ r.id }}</small></span></div></td>
                 <td class="date-cell">{{ r.items.length }}</td>
                 <td class="date-cell">{{ r.validUntil | date: 'MMM d, h:mm a' }}</td>
-                <td class="amount-cell">{{ myQuote(r) ? (store.quoteTotal(r, myQuote(r)!) | currency: 'USD' : 'symbol' : '1.0-0') : '—' }}</td>
+                <td class="amount-cell">{{ myQuote(r) ? (store.quoteTotal(r, myQuote(r)!) | currency: 'BDT' : 'BDT ' : '1.0-0') : '—' }}</td>
                 <td><span [class]="rfqTone(r)"><i></i>{{ rfqState(r) }}</span></td>
                 <td>
                   @if (canQuote(r)) {
@@ -78,7 +78,7 @@
                 <td><div class="primary-cell"><span><strong>{{ po.id }}</strong><small>{{ po.description }} · {{ po.lines.length }} item(s)</small></span></div></td>
                 <td class="date-cell mono">{{ po.erpRfqNo }}</td>
                 <td class="date-cell">{{ po.location }}</td>
-                <td class="amount-cell">{{ po.amount | currency: 'USD' : 'symbol' : '1.0-0' }}</td>
+                <td class="amount-cell">{{ po.amount | currency: 'BDT' : 'BDT ' : '1.0-0' }}</td>
                 <td class="date-cell">{{ po.grn ? po.grn.number : 'Awaiting GRN' }}</td>
                 <td><span [class]="tone(po.status)"><i></i>{{ po.status }}</span></td>
                 <td>
@@ -108,7 +108,7 @@
                 <td class="date-cell">{{ inv.poId }}</td>
                 <td class="date-cell">{{ inv.submittedAt | date: 'MMM d, y' }}</td>
                 <td class="date-cell mono">{{ inv.parkNo ?? 'Not parked yet' }}</td>
-                <td class="amount-cell">{{ inv.netAmount + inv.vatAmount | currency: 'USD' }}</td>
+                <td class="amount-cell">{{ inv.netAmount + inv.vatAmount | currency: 'BDT' : 'BDT ' }}</td>
                 <td><span [class]="tone(inv.status)"><i></i>{{ inv.status }}{{ inv.paymentRef ? ' · ' + inv.paymentRef : '' }}</span></td>
               </tr>
             } @empty {
@@ -139,15 +139,15 @@
             <ul class="clause-list">@for (s of it.techSpecs; track $index) { <li>{{ s }}</li> }</ul>
           }
           <div class="form-grid">
-            <label class="field"><span>Unit price (USD / {{ it.uom }})</span><input type="number" min="0" step="0.01" [attr.aria-label]="'Unit price for line ' + it.lineNo" [(ngModel)]="prices[it.lineNo]" /></label>
-            <label class="field"><span>Line total</span><input readonly [value]="(+(prices[it.lineNo] || 0) * it.quantity | currency: 'USD') ?? ''" /></label>
+            <label class="field"><span>Unit price (BDT / {{ it.uom }})</span><input type="number" min="0" step="0.01" [attr.aria-label]="'Unit price for line ' + it.lineNo" [(ngModel)]="prices[it.lineNo]" /></label>
+            <label class="field"><span>Line total</span><input readonly [value]="(+(prices[it.lineNo] || 0) * it.quantity | currency: 'BDT' : 'BDT ') ?? ''" /></label>
           </div>
         </div>
       }
 
       <div class="form-grid section-gap">
         <label class="field"><span>Delivery lead time (days)</span><input type="number" min="1" [(ngModel)]="deliveryDays" /></label>
-        <label class="field"><span>Quotation total</span><input readonly [value]="(quoteTotal(r) | currency: 'USD') ?? ''" /></label>
+        <label class="field"><span>Quotation total</span><input readonly [value]="(quoteTotal(r) | currency: 'BDT' : 'BDT ') ?? ''" /></label>
         <label class="field full"><span>Remarks</span><textarea [(ngModel)]="remarks"></textarea></label>
       </div>
 
@@ -176,16 +176,16 @@
           <thead><tr><th>ITEM</th><th>RECEIVED</th><th class="amount-cell">UNIT PRICE</th></tr></thead>
           <tbody>
             @for (l of po.lines; track l.lineNo) {
-              <tr><td>{{ l.lineNo }} · {{ l.description }}</td><td>{{ po.grn?.received?.[l.lineNo] ?? 0 }} / {{ l.quantity }} {{ l.uom }}</td><td class="amount-cell">{{ l.unitPrice | currency: 'USD' }}</td></tr>
+              <tr><td>{{ l.lineNo }} · {{ l.description }}</td><td>{{ po.grn?.received?.[l.lineNo] ?? 0 }} / {{ l.quantity }} {{ l.uom }}</td><td class="amount-cell">{{ l.unitPrice | currency: 'BDT' : 'BDT ' }}</td></tr>
             }
           </tbody>
         </table>
       </div>
       <div class="form-grid section-gap">
         <label class="field full"><span>Your invoice number</span><input [(ngModel)]="invoiceNo" placeholder="e.g. INV-0001" /></label>
-        <label class="field"><span>Net amount (USD)</span><input type="number" min="0" step="0.01" [(ngModel)]="netAmount" /></label>
-        <label class="field"><span>VAT (USD)</span><input type="number" min="0" step="0.01" [(ngModel)]="vatAmount" /></label>
-        <label class="field full"><span>Gross</span><input readonly [value]="(+netAmount + +vatAmount | currency: 'USD') ?? ''" /></label>
+        <label class="field"><span>Net amount (BDT)</span><input type="number" min="0" step="0.01" [(ngModel)]="netAmount" /></label>
+        <label class="field"><span>VAT (BDT)</span><input type="number" min="0" step="0.01" [(ngModel)]="vatAmount" /></label>
+        <label class="field full"><span>Gross</span><input readonly [value]="(+netAmount + +vatAmount | currency: 'BDT' : 'BDT ') ?? ''" /></label>
       </div>
       <div class="callout section-gap">After you submit, the company parks the invoice (Invoice Park No.), then it goes through department and VAT approval before payment.</div>
       <div class="drawer-actions">
